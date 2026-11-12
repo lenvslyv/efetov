@@ -5,9 +5,9 @@ import { Kpi } from "@/shared/ui";
 export function PatientHeader({ patient }: { patient: Patient }) {
   const owner = lockOwnerId(patient.lock);
   return (
-    <div className="mb-5 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
+    <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
       <Kpi title="ID" value={patient.id} note="ключевое поле журнала" />
-      <Kpi title="Шифр" value={patient.code} note="код исследования" tone="green" />
+      <Kpi title="Шифр" value={patient.code} note="код исследования" />
       <Kpi title="Группа/центр" value={patient.center} note="ключевое поле журнала" />
       <Kpi
         title="Дата операции"

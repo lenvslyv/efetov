@@ -1,4 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useDraft } from "./useDraft";
+import { clearRecovery } from "@/features/auth/recovery";
 import { api } from "@/api/mock";
 import { tryApi } from "@/api/errors";
 import { useRuntime } from "@/api/useRuntime";
@@ -31,10 +33,12 @@ export function CreatePatientForm({
   const { patients } = useRuntime();
   const { showToast } = useToast();
   const nextId = nextPatientId(patients.map((item) => item.id));
-  const [center, setCenter] = useState<string>(CENTERS[0]);
-  const [code, setCode] = useState(nextCode(nextId, "С"));
-  const [operationDate, setOperationDate] = useState("");
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [center, setCenter] = useDraft<string>(user?.id, "new:center", CENTERS[0]);
+  const [code, setCode] = useDraft<string>(user?.id, "new:code", nextCode(nextId, "С"));
+  const [operationDate, setOperationDate] = useDraft<string>(user?.id, "new:operationDate", "");
+  const [values, setValues] = useDraft<Record<string, string>>(user?.id, "new:values", {});
+  const [pending, setPending] = useState(false);
+  const discard = () => ["center", "code", "operationDate", "values"].forEach(key => clearRecovery(user?.id, `new:${key}`));
 
   const previewCode = useMemo(
     () => nextCode(nextId, centerCode(center)),
@@ -54,7 +58,8 @@ export function CreatePatientForm({
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!user) return;
+    if (!user || pending) return;
+    setPending(true);
     const created = await tryApi(
       () =>
         api.createPatient(user, {
@@ -65,7 +70,10 @@ export function CreatePatientForm({
         }),
       (error) => showToast(error.message)
     );
+    setPending(false);
     if (!created.ok) return;
+    discard();
+    setUnsavedChanges(false);
     showToast("Карточка добавлена в общий журнал");
     onCreated(created.value.id);
   };
@@ -93,11 +101,12 @@ export function CreatePatientForm({
         />
       </div>
       <form onSubmit={onSubmit} className="space-y-5">
+        {dirty && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Ввод сохранён как локальный черновик этой УЗ и вкладки. Карточка появится в системе после нажатия «Сохранить карточку».</p>}
         <Card className="p-5">
-          <h2 className="text-base font-black text-slate-900">
+          <h2 className="text-base font-semibold text-slate-900">
             Ключевые поля общего журнала
           </h2>
-          <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
+          <div className="mt-4 grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
             <div>
               <Label>ID</Label>
               <TextInput value={nextId} disabled />
@@ -136,10 +145,10 @@ export function CreatePatientForm({
           if (fields.length === 0) return null;
           return (
             <Card key={section.id} className="p-5">
-              <h2 className="text-base font-black text-slate-900">
+              <h2 className="text-base font-semibold text-slate-900">
                 {sectionLabel(section.id)}
               </h2>
-              <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
+              <div className="clinical-grid mt-4">
                 {fields.map((field) => (
                   <FieldControl
                     key={field.key}
@@ -162,7 +171,7 @@ export function CreatePatientForm({
           );
         })}
         <Card className="bg-slate-50 p-5">
-          <h2 className="text-base font-black text-slate-900">
+          <h2 className="text-base font-semibold text-slate-900">
             Разделы 11–15
           </h2>
           <p className="mt-2 text-slate-500">
@@ -171,8 +180,12 @@ export function CreatePatientForm({
           </p>
         </Card>
         <div className="flex flex-wrap gap-2">
-          <Button type="submit">Сохранить карточку</Button>
-          <Button type="button" variant="secondary" onClick={onCancel}>
+          <Button type="submit" disabled={pending}>Сохранить карточку</Button>
+          <Button type="button" variant="secondary" onClick={() => {
+            if (dirty && !window.confirm("Отменить создание карточки и удалить черновик?")) return;
+            discard();
+            onCancel();
+          }}>
             Отмена
           </Button>
         </div>

@@ -10,9 +10,9 @@ export function LeaderEditConfirm({
   onConfirm: () => void;
 }) {
   return (
-    <Modal onClose={onCancel}>
+    <Modal title="Подтверждение редактирования" onClose={onCancel}>
       <Card className="p-6">
-        <h2 className="text-xl font-black">Подтверждение редактирования</h2>
+        <h2 className="text-xl font-semibold">Подтверждение редактирования</h2>
         <p className="mt-3 text-slate-700">
           Вы уверены, что хотите внести изменения? Данные о пациенте были внесены
           другим пользователем – <b>{creator}</b>.

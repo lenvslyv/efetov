@@ -8,12 +8,15 @@ import {
   useState,
 } from "react";
 import { api } from "@/api/mock";
-import { setUnauthorizedHandler } from "@/api/http";
+import { clearRuntime, setUnauthorizedHandler } from "@/api/http";
+import { useLocation } from "react-router-dom";
+import { writeRecovery } from "./recovery";
+import { IDLE_TIMEOUT_MS } from "@/shared/config/brand";
 import { powers } from "@/entities/user/roles";
 import { ROLE_LABELS, type SessionUser } from "@/entities/user/types";
 import { hasUnsavedChanges } from "@/features/patient/unsaved";
 import { useToast } from "@/shared/ui/toast";
-import { loadSession, loadToken, saveSession, saveToken } from "./session";
+import { browserSession, loadSession, loadToken, saveSession, saveToken, sessionKey } from "./session";
 
 interface AuthContextValue {
   user: SessionUser | null;
@@ -29,17 +32,44 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<SessionUser | null>(() =>
-    loadToken() ? loadSession() : null
-  );
+  const location = useLocation();
+  const [user, setUser] = useState<SessionUser | null>(() => {
+    const session = browserSession();
+    if (!session || Date.now() - session.activity >= IDLE_TIMEOUT_MS) {
+      saveToken(null);
+      return null;
+    }
+    return session.user;
+  });
   const [loginError, setLoginError] = useState("");
   const { showToast } = useToast();
 
   const setCurrentUser = useCallback((next: SessionUser | null) => {
     setUser(next);
     saveSession(next);
-    if (!next) saveToken(null);
+    if (!next) { saveToken(null); clearRuntime(); }
   }, []);
+
+  useEffect(() => {
+    if (user && location.pathname !== "/login") {
+      writeRecovery(user.id, "path", location.pathname + location.search + location.hash);
+    }
+  }, [user?.id, location.pathname, location.search, location.hash]);
+
+  useEffect(() => {
+    let knownToken = loadToken();
+    const sync = (event: StorageEvent) => {
+      if (event.key !== sessionKey() && event.key !== null) return;
+      const token = loadToken();
+      if (token === knownToken) return;
+      knownToken = token;
+      clearRuntime();
+      setUser(token ? loadSession() : null);
+      setLoginError("");
+    };
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
+  }, [user]);
 
   useEffect(() => {
     setUnauthorizedHandler((message) => {
@@ -49,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (message === "Нужна авторизация") return;
       if (dirty && message.includes("неактивности")) {
         showToast(
-          "Сессия завершена из-за неактивности (15 минут). Несохранённые изменения не записаны."
+          "Сессия завершена из-за неактивности. Войдите в ту же учётную запись, чтобы восстановить черновик."
         );
         return;
       }
@@ -114,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(
     (reason: "manual" | "idle" = "manual") => {
-      if (user) void api.endSession(user, reason);
+      if (user) void api.endSession(user, reason).catch(() => undefined);
       else {
         saveToken(null);
       }

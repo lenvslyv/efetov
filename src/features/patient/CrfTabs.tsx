@@ -13,14 +13,16 @@ export function CrfTabs({
   onChange: (sectionId: number) => void;
 }) {
   return (
-    <Card className="mb-5 p-4">
-      <div className="flex flex-wrap gap-2">
+    <Card className="mb-5 min-w-0 overflow-hidden p-3">
+      <div className="mb-2 flex items-center justify-between px-1 text-xs font-medium text-muted-foreground"><span>Разделы карточки</span><span>{active} из {CRF_SECTIONS.length}</span></div>
+      <div aria-label="Разделы карточки пациента" className="flex flex-wrap gap-2">
         {CRF_SECTIONS.map((item) => (
           <Button
             key={item.id}
             variant={active === item.id ? "primary" : "secondary"}
             disabled={!canViewSection(role, item.id)}
-            className="max-w-full whitespace-normal text-left"
+            className="max-w-full justify-start whitespace-normal text-left text-xs"
+            aria-current={active === item.id ? "page" : undefined}
             onClick={() => onChange(item.id)}
           >
             {sectionLabel(item.id)}

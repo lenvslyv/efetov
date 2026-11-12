@@ -5,6 +5,7 @@ import {
   type StoredFile,
 } from "@/entities/file/types";
 import { Button, Card } from "@/shared/ui";
+import { ChevronDown, ChevronRight, FolderOpen } from "lucide-react";
 
 function FileNodeView({
   node,
@@ -15,6 +16,7 @@ function FileNodeView({
   canManage,
   onDownload,
   onDelete,
+  onDeleteFolder,
 }: {
   node: FileTreeNode;
   level: number;
@@ -24,11 +26,12 @@ function FileNodeView({
   canManage: boolean;
   onDownload: (name: string) => void;
   onDelete: (name: string) => void;
+  onDeleteFolder: (path: string) => void;
 }) {
   return (
     <>
       {Object.entries(node.folders).map(([folder, child]) => {
-        const folderPath = path ? `${path}/${folder}` : folder;
+        const folderPath = path ? `${path} / ${folder}` : folder;
         const isCollapsed = collapsed.has(folderPath);
         return (
           <div
@@ -36,16 +39,23 @@ function FileNodeView({
             className="border-l-2 border-slate-200 pl-3"
             style={{ marginLeft: level * 16 }}
           >
+            <div className="my-2 flex items-center gap-2 rounded-lg border bg-slate-50/70 px-2">
             <button
               type="button"
-              className="my-2 flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-left font-black text-slate-900"
+              className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-3 text-left text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-expanded={!isCollapsed}
               aria-label={`${isCollapsed ? "Раскрыть" : "Свернуть"} папку ${folder}`}
               onClick={() => onToggle(folderPath)}
             >
-              <span aria-hidden="true">{isCollapsed ? "▶" : "▼"}</span>
-              <span>{folder}</span>
+              {isCollapsed ? <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" /> : <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />}
+              <FolderOpen aria-hidden="true" className="size-4 shrink-0 text-primary" /><span className="break-all">{folder}</span>
             </button>
+            {canManage && (
+              <Button type="button" variant="secondary" className="min-h-8 px-2 py-1 text-xs text-destructive" aria-label={`Удалить папку ${folder}`} onClick={() => onDeleteFolder(folderPath)}>
+                Удалить папку
+              </Button>
+            )}
+            </div>
             {isCollapsed ? null : (
               <FileNodeView
                 node={child}
@@ -56,6 +66,7 @@ function FileNodeView({
                 canManage={canManage}
                 onDownload={onDownload}
                 onDelete={onDelete}
+                onDeleteFolder={onDeleteFolder}
               />
             )}
           </div>
@@ -97,12 +108,14 @@ export function FileTree({
   canManage,
   onDownload,
   onDelete,
+  onDeleteFolder,
 }: {
   files: StoredFile[];
   folders?: string[];
   canManage: boolean;
   onDownload: (name: string) => void;
   onDelete: (name: string) => void;
+  onDeleteFolder: (path: string) => void;
 }) {
   const tree = groupFiles(files, folders);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
@@ -126,6 +139,7 @@ export function FileTree({
           canManage={canManage}
           onDownload={onDownload}
           onDelete={onDelete}
+          onDeleteFolder={onDeleteFolder}
         />
       </div>
     </Card>

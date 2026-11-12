@@ -29,9 +29,10 @@ def verify_password(password: str, stored: str) -> bool:
     return hmac.compare_digest(digest.hex(), digest_hex)
 
 
-def create_token(user) -> str:
+def create_token(user, session_id: str) -> str:
     payload = {
         "sub": user.id,
+        "sid": session_id,
         "login": user.login,
         "role": user.role,
         "name": user.name,

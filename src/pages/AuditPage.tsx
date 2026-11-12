@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { api } from "@/api/mock";
+import { useToast } from "@/shared/ui/toast";
 import { useRuntime } from "@/api/useRuntime";
 import { EMPTY_AUDIT_FILTERS, type AuditFilters } from "@/entities/audit/types";
 import { AuditFiltersBar } from "@/features/audit/AuditFilters";
@@ -9,6 +11,10 @@ import { PageHeader } from "@/shared/ui";
 
 export function AuditPage() {
   const { pwr } = useAuth();
+  const { showToast } = useToast();
+  useEffect(() => {
+    if (pwr.canAudit) void api.refreshAudit().catch(error => showToast(error.message));
+  }, [pwr.canAudit, showToast]);
   const { audit } = useRuntime();
   const [filters, setFilters] = useState<AuditFilters>(EMPTY_AUDIT_FILTERS);
 

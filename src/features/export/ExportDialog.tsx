@@ -22,9 +22,9 @@ export function ExportDialog({
   onExport: (format: "excel" | "csv") => void;
 }) {
   return (
-    <Modal onClose={onClose}>
+    <Modal title={type === "final" ? "Итоговая выгрузка" : "Статистический срез"} onClose={onClose}>
       <Card className="p-6">
-        <h2 className="text-xl font-black">
+        <h2 className="text-xl font-semibold">
           {type === "final" ? "Итоговая выгрузка" : "Статистический срез"}
         </h2>
         <p className="mt-2 text-slate-500">

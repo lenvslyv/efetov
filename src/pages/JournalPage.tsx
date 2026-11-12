@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { startOperation } from "@/shared/lib/performance";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/mock";
 import { tryApi } from "@/api/errors";
@@ -8,7 +9,7 @@ import { ExportDialog } from "@/features/export/ExportDialog";
 import { JournalFilters } from "@/features/journal/JournalFilters";
 import { PatientTable } from "@/features/journal/PatientTable";
 import { useJournal } from "@/features/journal/useJournal";
-import { PageHeader } from "@/shared/ui";
+import { Button, PageHeader } from "@/shared/ui";
 import { useToast } from "@/shared/ui/toast";
 
 export function JournalPage() {
@@ -26,6 +27,7 @@ export function JournalPage() {
     resetFilters,
   } = useJournal();
   const [exportModal, setExportModal] = useState<"final" | "slice" | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const deletePatient = async (id: string) => {
     if (!user) return;
@@ -82,6 +84,14 @@ export function JournalPage() {
         title="Общий журнал пациентов"
         description="Список карточек пациентов."
       />
+      <div className="mb-4">
+        <Button type="button" variant="secondary" disabled={refreshing} onClick={async () => {
+          setRefreshing(true);
+          try { await api.refreshRuntime(); }
+          catch (error) { showToast(error instanceof Error ? error.message : "Не удалось обновить журнал"); }
+          finally { setRefreshing(false); }
+        }}>{refreshing ? "Обновление…" : "Обновить журнал"}</Button>
+      </div>
       <JournalFilters
         filters={filters}
         centers={centers}
@@ -98,7 +108,7 @@ export function JournalPage() {
         sort={sort}
         canDelete={pwr.canDeletePatient}
         onSort={sortBy}
-        onOpen={(id) => navigate(`/patients/${id}`)}
+        onOpen={(id) => { startOperation("patient.open"); navigate(`/patients/${id}`); }}
         onDelete={deletePatient}
       />
       {exportModal ? (

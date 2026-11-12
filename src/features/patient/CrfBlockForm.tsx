@@ -25,7 +25,7 @@ export function CrfBlockForm({
     <Card className="p-5">
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-black">{block}</h2>
+          <h2 className="text-xl font-semibold">{block}</h2>
           <p className="mt-1 text-slate-500">
             {fields.length === 0
               ? "В этом разделе нет полей."
@@ -40,7 +40,7 @@ export function CrfBlockForm({
           {editable ? "редактирование" : "только просмотр"}
         </Badge>
       </div>
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
+      <div className="clinical-grid">
         {fields.map((field) => {
           const computed = Boolean(
             field.key && fieldByKey(field.key)?.computedFrom
@@ -57,7 +57,7 @@ export function CrfBlockForm({
           );
         })}
       </div>
-      <div className="mt-5 flex flex-wrap gap-2">
+      <div className="mt-6 flex flex-wrap gap-2 border-t border-border pt-5">
         <Button disabled={!canSave} onClick={onSave}>
           Сохранить
         </Button>

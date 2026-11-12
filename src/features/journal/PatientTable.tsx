@@ -38,11 +38,11 @@ export function PatientTable({
               {COLUMNS.map(([key, label]) => (
                 <th
                   key={key}
-                  className="whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-3 text-left font-extrabold text-slate-600"
+                  className="whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-3 text-left font-semibold text-slate-600"
                 >
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1 bg-transparent p-0 font-black text-slate-700 hover:text-teal-700"
+                    className="inline-flex items-center gap-1 bg-transparent p-0 font-semibold text-slate-700 hover:text-blue-700"
                     onClick={() => onSort(key)}
                   >
                     {label}
@@ -52,7 +52,7 @@ export function PatientTable({
                   </button>
                 </th>
               ))}
-              <th className="sticky right-0 z-10 whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-3 text-left font-extrabold text-slate-600 shadow-[-8px_0_8px_-8px_rgba(15,23,42,0.35)]">
+              <th className="sticky right-0 z-10 whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-3 text-left font-semibold text-slate-600 shadow-[-8px_0_8px_-8px_rgba(15,23,42,0.35)]">
                 Действия
               </th>
             </tr>
@@ -60,7 +60,7 @@ export function PatientTable({
           <tbody>
             {rows.map((patient) => (
               <tr key={patient.id} className="group hover:bg-slate-50">
-                <td className="max-w-[280px] border-b border-slate-200 px-3 py-3 font-black">
+                <td className="max-w-[280px] border-b border-slate-200 px-3 py-3 font-semibold">
                   {patient.id}
                 </td>
                 <td className="max-w-[280px] border-b border-slate-200 px-3 py-3">

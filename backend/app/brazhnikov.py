@@ -113,11 +113,28 @@ def _field_value(patient: Patient, blocks: dict, field: dict) -> str:
 
 def _patient_cells(patient: Patient, columns: list[tuple[str, str]], fields: list[dict | None], row: int) -> str:
     blocks = json.loads(patient.blocks_json)
+    stored = [item for items in blocks.values() if isinstance(items, list) for item in items if isinstance(item, dict)]
+    # Modern cards have unique keys. Legacy, unkeyed cards keep the original
+    # ordered alias matching so duplicate clinical labels do not change meaning.
+    indexed: dict[str, dict] = {}
+    for item in stored:
+        if item.get("key"):
+            indexed.setdefault(item["key"], item)
+    legacy = any(not item.get("key") for item in stored)
+    def value_of(field: dict) -> str:
+        if legacy:
+            return _field_value(patient, blocks, field)
+        value = str(indexed.get(field["key"], {}).get("value") or "")
+        if field["key"] == "bmi":
+            return compute_bmi(str(indexed.get("height", {}).get("value") or ""), str(indexed.get("weight", {}).get("value") or "")) or value
+        if field["key"] == "opDate" and not value:
+            return patient.operation_date if patient.operation_date and patient.operation_date != "-" else ""
+        return value
     parts = []
     for (column, _header), field in zip(columns, fields):
         if field is None:
             continue
-        value = _field_value(patient, blocks, field)
+        value = value_of(field)
         if value == "":
             continue
         parts.append(_cell(column, row, value))

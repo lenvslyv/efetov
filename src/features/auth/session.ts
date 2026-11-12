@@ -1,32 +1,46 @@
 import type { SessionUser } from "@/entities/user/types";
 
-const USER_KEY = "efetovSessionUser";
-const TOKEN_KEY = "efetovToken";
+const SELECTED = "efetovSelectedAccount";
+const LAST = "efetovLastAccount";
+const PREFIX = "efetovAuth:";
+export interface BrowserSession { user: SessionUser; token: string; activity: number }
 
-export function loadSession(): SessionUser | null {
-  try {
-    return JSON.parse(localStorage.getItem(USER_KEY) || "null") as SessionUser | null;
-  } catch {
-    return null;
-  }
+function selectedId(): string | null {
+  const existing = sessionStorage.getItem(SELECTED);
+  if (existing) return existing;
+  const last = localStorage.getItem(LAST);
+  if (last) sessionStorage.setItem(SELECTED, last);
+  return last;
 }
+export function sessionKey(): string { return PREFIX + (selectedId() ?? ""); }
+export function browserSession(): BrowserSession | null {
+  try { return JSON.parse(localStorage.getItem(sessionKey()) || "null"); }
+  catch { return null; }
+}
+export function loadSession(): SessionUser | null { return browserSession()?.user ?? null; }
+export function loadToken(): string | null { return browserSession()?.token ?? null; }
 
+export function saveAuthenticated(user: SessionUser, token: string) {
+  sessionStorage.setItem(SELECTED, user.id);
+  localStorage.setItem(LAST, user.id);
+  localStorage.setItem(sessionKey(), JSON.stringify({ user, token, activity: Date.now() }));
+  localStorage.removeItem("efetovSessionUser");
+  localStorage.removeItem("efetovToken");
+}
 export function saveSession(user: SessionUser | null) {
-  if (!user) {
-    localStorage.removeItem(USER_KEY);
-    return;
-  }
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  if (!user) { localStorage.removeItem(sessionKey()); return; }
+  const current = browserSession();
+  if (current) localStorage.setItem(sessionKey(), JSON.stringify({ ...current, user }));
 }
-
-export function loadToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
-}
-
 export function saveToken(token: string | null) {
-  if (!token) {
-    localStorage.removeItem(TOKEN_KEY);
-    return;
+  const current = browserSession();
+  if (!token) { localStorage.removeItem(sessionKey()); return; }
+  if (current) localStorage.setItem(sessionKey(), JSON.stringify({ ...current, token }));
+}
+export function recordActivity() {
+  const current = browserSession();
+  const now = Date.now();
+  if (current && now - current.activity >= 500) {
+    localStorage.setItem(sessionKey(), JSON.stringify({ ...current, activity: now }));
   }
-  localStorage.setItem(TOKEN_KEY, token);
 }

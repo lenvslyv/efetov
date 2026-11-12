@@ -17,6 +17,13 @@ engine = create_engine(
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
+def configure_database() -> None:
+    # Readers must not hold up patient/audit writes during a large journal read.
+    # Keep SQLite's default durability and five-second busy timeout unchanged.
+    with engine.connect() as connection:
+        connection.exec_driver_sql("PRAGMA journal_mode=WAL")
+
+
 class Base(DeclarativeBase):
     pass
 

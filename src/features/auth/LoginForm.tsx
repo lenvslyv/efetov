@@ -5,12 +5,13 @@ import type { DemoUser } from "@/entities/user/types";
 import { ROLE_LABELS } from "@/entities/user/types";
 import { Button, Card, Label, TextInput } from "@/shared/ui";
 import { returnPathFromState } from "./redirect";
+import { restoredPath } from "./recovery";
+import { loadSession } from "./session";
 import { useAuth } from "./useAuth";
 
 export function LoginForm() {
   const { login, loginError } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -18,16 +19,15 @@ export function LoginForm() {
     const loginValue = (form.elements.namedItem("login") as HTMLInputElement).value;
     const password = (form.elements.namedItem("password") as HTMLInputElement)
       .value;
-    if (await login(loginValue.trim(), password.trim())) {
-      navigate(returnPathFromState(location.state), { replace: true });
+    if (await login(loginValue.trim(), password)) {
+      navigate(restoredPath(loadSession()!.id), { replace: true });
     }
   };
 
   return (
     <Card className="p-8">
-      <h1 className="text-3xl font-black tracking-tight">
-        Интерактивная цифровая система поддержки клинического испытания
-      </h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Вход в систему</h1>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">Система сопровождения клинического исследования. Введите данные своей учётной записи.</p>
       <form onSubmit={onSubmit} className="mt-8 space-y-4">
         <div>
           <Label htmlFor="login">Логин</Label>
@@ -35,7 +35,7 @@ export function LoginForm() {
             id="login"
             name="login"
             autoComplete="username"
-            placeholder="manager"
+            placeholder="Введите логин"
           />
         </div>
         <div>
@@ -45,7 +45,7 @@ export function LoginForm() {
             name="password"
             type="password"
             autoComplete="current-password"
-            placeholder="Manager123"
+            placeholder="Введите пароль"
           />
         </div>
         {loginError ? (
@@ -78,7 +78,7 @@ export function QuickRoleCards() {
         <Card key={item.id} className="p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-lg font-black">{ROLE_LABELS[item.role]}</div>
+              <div className="text-lg font-semibold">{ROLE_LABELS[item.role]}</div>
               <div className="mt-1 text-sm text-slate-500">
                 ID пользователя: {item.id}
               </div>
