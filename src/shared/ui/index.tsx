@@ -6,6 +6,7 @@ import { Label } from "./components/label";
 import { Input as TextInput } from "./components/input";
 import { Textarea as TextArea } from "./components/textarea";
 import { Card } from "./components/card";
+import { fieldSize, visibleFieldHint } from "@/entities/crf/presentation";
 
 export { Label, TextInput, TextArea, Card };
 
@@ -45,9 +46,9 @@ export function Kpi({ title, value, note, tone = "blue" }: { title: string; valu
   </Card>;
 }
 
-export function Modal({ children, onClose, title = "Диалог", dismissible = true }: { children: ReactNode; onClose: () => void; title?: string; dismissible?: boolean }) {
+export function Modal({ children, onClose, title = "Диалог", dismissible = true, className }: { children: ReactNode; onClose: () => void; title?: string; dismissible?: boolean; className?: string }) {
   return <Dialog open onOpenChange={open => { if (!open && dismissible) onClose(); }}>
-    <DialogContent showCloseButton={dismissible} className="p-0 sm:p-0 [&>div]:border-0 [&>div]:bg-transparent [&>div]:shadow-none [&_h2]:pr-7">
+    <DialogContent showCloseButton={dismissible} className={cn("p-0 sm:p-0 [&>div]:border-0 [&>div]:bg-transparent [&>div]:shadow-none [&_h2]:pr-7", className)}>
       <DialogTitle className="sr-only">{title}</DialogTitle>
       {children}
     </DialogContent>
@@ -63,14 +64,16 @@ export function isMultilineField(name: string): boolean {
   return /описание|заключение|текст протокола|комментарий|причин[аы]|сопутствующие заболевания|другие данные ревизии/i.test(name);
 }
 
-export function FieldControl({ name, value, hint, editable, onChange }: { name: string; value: string; hint?: string; editable: boolean; onChange: (value: string) => void }) {
+export function FieldControl({ name, value, hint, fieldKey, editable, onChange }: { name: string; value: string; hint?: string; fieldKey?: string; editable: boolean; onChange: (value: string) => void }) {
   const id = useId();
+  const size = fieldSize(fieldKey);
+  const visibleHint = visibleFieldHint(hint);
   const multiline = isMultilineField(name);
   const Control = multiline ? TextArea : TextInput;
-  return <div className={cn("clinical-field", (multiline || name.length > 120) && "clinical-field-wide")}>
-    <Label htmlFor={id} className="clinical-label">{name}</Label>
-    <Control id={id} readOnly={!editable} value={value} aria-describedby={hint ? `${id}-hint` : undefined}
+  return <div className={cn("clinical-field", size === "compact" && "clinical-field-compact", size === "medium" && "clinical-field-medium", (multiline || name.length > 120) && "clinical-field-wide")}>
+    <Label htmlFor={id} className="clinical-label mb-0">{name}</Label>
+    <Control id={id} readOnly={!editable} value={value} aria-describedby={visibleHint ? `${id}-hint` : undefined}
       className="clinical-control" onChange={event => { if (editable) onChange(event.target.value); }} />
-    <p id={`${id}-hint`} className="clinical-hint">{hint}</p>
+    <p id={`${id}-hint`} className="clinical-hint">{visibleHint}</p>
   </div>;
 }

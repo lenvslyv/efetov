@@ -1,8 +1,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('C:/Users/Admin/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
-const BASE = 'http://127.0.0.1:8001';
-const OUT = path.resolve(__dirname, '../.cache/pmi-20261112');
+const BASE = process.env.PMI_BASE_URL || 'http://127.0.0.1:8001';
+const OUT = process.env.PMI_OUTPUT_DIR || path.resolve(__dirname, '../.cache/pmi-20261112');
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 let browser;
 let keepActive;
@@ -16,6 +16,16 @@ async function login(page, name, password) {
   await page.waitForURL(url => !url.pathname.endsWith('/login'), { waitUntil: 'domcontentloaded' });
 }
 (async () => {
+  async function api(url,token,method='GET',body){
+    const r=await fetch(BASE+url,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},...(body?{body:JSON.stringify(body)}:{})});
+    if(!r.ok)throw Error('Idle fixture '+url+' HTTP '+r.status);return r.json();
+  }
+  const owner=await api('/api/login',null,'POST',{login:'stationary_doctor_2',password:'Doctor123'});
+  const ownCard=await api('/api/patients',owner.token,'POST',{center:'ПМИ таймаут'});
+  const manager=await api('/api/login',null,'POST',{login:'manager',password:'Manager123'});
+  let fixture=await api('/api/runtime',manager.token);
+  while(fixture.patients.length<88){await api('/api/patients',manager.token,'POST',{center:'ПМИ синтетические данные'});fixture=await api('/api/runtime',manager.token);}
+  result.patients=fixture.patients.length;
   browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
   const activeContext = await browser.newContext();
   const active = await activeContext.newPage();
@@ -24,7 +34,7 @@ async function login(page, name, password) {
   const idleContext = await browser.newContext();
   const idle = await idleContext.newPage();
   await login(idle, 'stationary_doctor_2', 'Doctor123');
-  await idle.locator('tbody tr').first().getByRole('button', { name: 'Открыть', exact: true }).click();
+  await idle.goto(BASE+'/patients/'+ownCard.id,{waitUntil:'domcontentloaded'});
   const patientPath = new URL(idle.url()).pathname;
   await idle.getByRole('button', { name: 'Взять в работу', exact: true }).click();
   await idle.getByRole('button', { name: 'Снять блокировку', exact: true }).waitFor();
@@ -59,6 +69,7 @@ async function login(page, name, password) {
   if (new URL(active.url()).pathname === '/login') throw new Error('Active independent account was also logged out');
   await login(idle, 'stationary_doctor_2', 'Doctor123');
   if (new URL(idle.url()).pathname !== patientPath) throw new Error('Patient route was not restored after inactivity login');
+  await idle.getByRole('button', { name: 'Продолжить редактирование', exact: true }).click();
   await idle.locator('.clinical-field input').first().waitFor();
   const value = await idle.locator('.clinical-field input').first().inputValue();
   if (value !== 'ПМИ несохранённый черновик после 15 минут') throw new Error('Unsaved draft was not restored');

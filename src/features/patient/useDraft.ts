@@ -1,24 +1,20 @@
-import { useCallback, useRef, useState } from "react";
-import { readRecovery, writeRecovery } from "@/features/auth/recovery";
-import { useToast } from "@/shared/ui/toast";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { readDraft, writeDraft } from "@/features/auth/recovery";
 
 export function useDraft<T>(userId: string | undefined, kind: string, initial: T):
   [T, (next: T | ((previous: T) => T)) => void] {
   const key = `${userId}:${kind}`;
-  const [state, setState] = useState(() => ({ key, value: readRecovery<T>(userId, kind) ?? initial }));
-  const value = state.key === key ? state.value : readRecovery<T>(userId, kind) ?? initial;
+  const [state, setState] = useState(() => ({ key, value: readDraft<T>(userId, kind) ?? initial }));
+  const value = state.key === key ? state.value : readDraft<T>(userId, kind) ?? initial;
   const current = useRef(value);
   current.current = value;
-  const { showToast } = useToast();
-  const warned = useRef(false);
+  // Re-register restored input after a development StrictMode remount as well.
+  useLayoutEffect(() => { writeDraft(userId, kind, value); }, [userId, kind, value]);
   const setValue = useCallback((next: T | ((previous: T) => T)) => {
     const value = typeof next === "function" ? (next as (previous: T) => T)(current.current) : next;
     current.current = value;
-    if (!writeRecovery(userId, kind, value) && !warned.current) {
-      warned.current = true;
-      showToast("Не удалось сохранить черновик в браузере. Сохраните данные в системе до выхода.");
-    }
+    writeDraft(userId, kind, value);
     setState({ key, value });
-  }, [userId, kind, key, showToast]);
+  }, [userId, kind, key]);
   return [value, setValue];
 }

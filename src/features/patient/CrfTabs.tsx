@@ -7,10 +7,12 @@ export function CrfTabs({
   role,
   active,
   onChange,
+  creating = false,
 }: {
   role: Role | null | undefined;
   active: number;
   onChange: (sectionId: number) => void;
+  creating?: boolean;
 }) {
   return (
     <Card className="mb-5 min-w-0 overflow-hidden p-3">
@@ -20,7 +22,8 @@ export function CrfTabs({
           <Button
             key={item.id}
             variant={active === item.id ? "primary" : "secondary"}
-            disabled={!canViewSection(role, item.id)}
+            disabled={!canViewSection(role, item.id) || (creating && item.id > 10)}
+            title={creating && item.id > 10 ? "Доступно после создания карточки" : undefined}
             className="max-w-full justify-start whitespace-normal text-left text-xs"
             aria-current={active === item.id ? "page" : undefined}
             onClick={() => onChange(item.id)}
@@ -29,6 +32,7 @@ export function CrfTabs({
           </Button>
         ))}
       </div>
+      {creating && <p className="mt-3 px-1 text-xs leading-5 text-muted-foreground">При создании заполняются разделы 1–10. Разделы 11–15 доступны после сохранения карточки.</p>}
     </Card>
   );
 }

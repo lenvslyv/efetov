@@ -1,9 +1,11 @@
 import { useAuth } from "@/features/auth/useAuth";
 import { Button } from "@/shared/ui";
 import { LogOut, Menu, UserRound } from "lucide-react";
+import { useLeaveForm } from "@/features/patient/NavigationGuard";
 
 export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { user, roleName, logout } = useAuth();
+  const leave = useLeaveForm();
 
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-white/95 px-4 py-3 backdrop-blur sm:px-6 2xl:px-8">
@@ -20,7 +22,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
           <Button
             variant="secondary"
             onClick={() => {
-              logout("manual");
+              leave(() => logout("manual"));
             }}
           >
             <LogOut />Выйти

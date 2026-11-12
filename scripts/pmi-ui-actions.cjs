@@ -1,8 +1,8 @@
 const fs=require('node:fs');
 const path=require('node:path');
 const {chromium}=require('C:/Users/Admin/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
-const BASE='http://127.0.0.1:8001';
-const OUT=path.resolve(__dirname,'../.cache/pmi-20261112');
+const BASE=process.env.PMI_BASE_URL || 'http://127.0.0.1:8001';
+const OUT=process.env.PMI_OUTPUT_DIR || path.resolve(__dirname,'../.cache/pmi-20261112');
 const fixture=JSON.parse(fs.readFileSync(path.join(OUT,'fixture.json'),'utf8'));
 const results=[];
 function assert(value,message){if(!value)throw Error(message);}
@@ -94,7 +94,14 @@ async function login(page,name,password='Doctor123'){
  for(const [number,name,editableSection,readonlySection] of [['4.2.2','stationary_doctor',1,11],['4.2.3','ambulatory_doctor',11,1]])await check(number,async()=>{
   const ctx=await browser.newContext(), doctor=await ctx.newPage();
   await login(doctor,name);
-  await doctor.goto(BASE+'/patients/'+fixture.target);
+  let pid=fixture.target, temporary, token;
+  if(name==='stationary_doctor'){
+   const auth=await fetch(BASE+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({login:name,password:'Doctor123'})}).then(r=>r.json());
+   const created=await fetch(BASE+'/api/patients',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+auth.token},body:JSON.stringify({center:'ПМИ проверка интерфейса'})});
+   assert(created.ok,'Own card fixture not created');temporary=(await created.json()).id;pid=temporary;
+   token=await fetch(BASE+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({login:'manager',password:'Manager123'})}).then(r=>r.json());
+  }
+  await doctor.goto(BASE+'/patients/'+pid);
   const tabs=doctor.locator('[aria-label="Разделы карточки пациента"] button');
   await tabs.nth(editableSection-1).click();
   await doctor.locator('.clinical-control').first().waitFor();
@@ -102,7 +109,8 @@ async function login(page,name,password='Doctor123'){
   await tabs.nth(readonlySection-1).click();
   assert(await doctor.locator('.clinical-control').first().evaluate(element=>element.readOnly),'Forbidden section editable');
   const count=await tabs.count(); assert(count===15,'Not all sections visible');
-  await ctx.close();return {all15SectionsVisible:true,editableSection,readonlySection};
+  if(temporary)await fetch(BASE+'/api/patients/'+temporary,{method:'DELETE',headers:{Authorization:'Bearer '+token.token}});
+  await ctx.close();return {all15SectionsVisible:true,editableSection,readonlySection,ownCardUsed:name==='stationary_doctor'};
  });
  await check('4.4.1',async()=>{
   await page.goto(BASE+'/files');

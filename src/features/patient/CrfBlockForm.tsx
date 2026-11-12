@@ -48,6 +48,7 @@ export function CrfBlockForm({
           return (
             <FieldControl
               key={field.key || field.name}
+              fieldKey={field.key}
               name={field.name}
               value={values[field.key || field.name] ?? field.value ?? ""}
               hint={field.hint}

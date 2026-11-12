@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { clearDrafts, clearIdleRecovery } from "@/features/auth/recovery";
+import { useEditor } from "./useEditor";
 import { useDraft } from "./useDraft";
 import { startOperation, finishOperation, cancelOperation } from "@/shared/lib/performance";
 import { api } from "@/api/mock";
@@ -37,6 +39,8 @@ export function usePatientCard(id: string | undefined) {
   const [drafts, setDrafts] = useDraft<Record<number, Record<string, string>>>(user?.id, `patient:${id}:draft`, {});
   const [baselines, setBaselines] = useDraft<Record<number, Record<string, string>>>(user?.id, `patient:${id}:baseline`, {});
   const [leaderEditOpen, setLeaderEditOpen] = useState(false);
+  const leaveSave = useRef<((result: boolean) => void) | null>(null);
+  const saving = useRef(false);
 
   const sectionId = visibleSections.includes(activeSection)
     ? activeSection
@@ -64,12 +68,6 @@ export function usePatientCard(id: string | undefined) {
   }, [id]);
 
   useEffect(() => {
-    setUnsavedChanges(Object.keys(drafts).length > 0);
-  }, [drafts]);
-
-  useEffect(() => () => setUnsavedChanges(false), []);
-
-  useEffect(() => {
     if (activeSection !== sectionId) setActiveSection(sectionId);
   }, [activeSection, sectionId]);
 
@@ -89,37 +87,67 @@ export function usePatientCard(id: string | undefined) {
     return payload;
   };
 
-  const applySave = async () => {
-    if (!user || !patient) return;
+  const completeSave = (success: boolean) => {
+    leaveSave.current?.(success); leaveSave.current = null;
+    setLeaderEditOpen(false);
+    return success;
+  };
+  const applySave = async (): Promise<boolean> => {
+    if (!user || !patient || saving.current) return false;
     const payload = sectionsToSave();
     if (Object.keys(payload).length === 0) {
       showToast("Нет изменений для сохранения");
-      setLeaderEditOpen(false);
-      return;
+      return completeSave(true);
     }
     const conflicts = Object.entries(payload).some(([section, draft]) => {
       const current = sectionValues(patient, Number(section));
       return Object.keys(draft).some(key => baselines[Number(section)]?.[key] !== undefined &&
         current[key] !== baselines[Number(section)][key] && current[key] !== draft[key]);
     });
-    if (conflicts && !window.confirm("После начала редактирования данные карточки изменились. Заменить изменённые поля значениями из вашего черновика?")) return;
+    if (conflicts && !window.confirm("После начала редактирования данные карточки изменились. Заменить изменённые поля значениями из вашего черновика?")) return completeSave(false);
+    saving.current = true;
     try {
       startOperation("patient.save");
       const saved = await tryApi(
         () => api.savePatientSections(user, patient.id, payload),
         (error) => showToast(error.message)
       );
-      if (!saved.ok) { cancelOperation("patient.save"); return; }
+      if (!saved.ok) { cancelOperation("patient.save"); return completeSave(false); }
       setDrafts({});
       setBaselines({});
+      setUnsavedChanges(false);
       setLeaderEditOpen(false);
       showToast("Изменения сохранены в карточке пациента");
       requestAnimationFrame(() => requestAnimationFrame(() => finishOperation("patient.save")));
+      return completeSave(true);
     } catch (error) {
       cancelOperation("patient.save");
       showToast(error instanceof Error ? error.message : "Не удалось сохранить карточку");
+      return completeSave(false);
+    } finally {
+      saving.current = false;
     }
   };
+  const dirty = Boolean(patient && Object.entries(drafts).some(([section, values]) =>
+    Object.entries(values).some(([key, value]) => sectionValues(patient, Number(section))[key] !== value)));
+  const discard = () => {
+    setDrafts({}); setBaselines({});
+    clearDrafts(user?.id, `patient:${id}:`);
+    if (user) clearIdleRecovery(user.id);
+    setUnsavedChanges(false);
+  };
+  useEditor(user?.id, `patient:${id}:`, dirty, {
+    discard,
+    save: () => {
+      if (!user || !patient || !canSave) { showToast("Сохранение карточки недоступно"); return Promise.resolve(false); }
+      if (user.role === "leader" && patient.createdBy !== user.id) {
+        setLeaderEditOpen(true);
+        return new Promise<boolean>(resolve => { leaveSave.current = resolve; });
+      }
+      return applySave();
+    },
+  });
+  useEffect(() => () => { leaveSave.current?.(false); leaveSave.current = null; }, [id]);
 
   const requestSave = () => {
     if (!user || !patient || !canSave) {
@@ -157,7 +185,7 @@ export function usePatientCard(id: string | undefined) {
 
   return {
     patient,
-    hasDraft: Object.keys(drafts).length > 0,
+    hasDraft: dirty,
     sectionId,
     sectionLabel: sectionById(sectionId)
       ? sectionLabel(sectionId)
@@ -198,7 +226,7 @@ export function usePatientCard(id: string | undefined) {
     },
     requestSave,
     applySave,
-    closeLeaderEdit: () => setLeaderEditOpen(false),
+    closeLeaderEdit: () => completeSave(false),
     takeLock,
     releaseLock,
   };

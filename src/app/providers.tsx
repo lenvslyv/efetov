@@ -1,16 +1,17 @@
-import { BrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom";
 import { AuthProvider } from "@/features/auth/AuthProvider";
 import { ToastProvider } from "@/shared/ui/toast";
-import { AppRouter } from "./router";
+import { appRoutes } from "./router";
+import { NavigationGuard } from "@/features/patient/NavigationGuard";
 
-export function AppProviders() {
+function RootProviders() {
   return (
-    <BrowserRouter>
       <ToastProvider>
         <AuthProvider>
-          <AppRouter />
+          <NavigationGuard><Outlet /></NavigationGuard>
         </AuthProvider>
       </ToastProvider>
-    </BrowserRouter>
   );
 }
+const router = createBrowserRouter([{ element: <RootProviders />, children: appRoutes() }]);
+export function AppProviders() { return <RouterProvider router={router} />; }

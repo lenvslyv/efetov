@@ -35,7 +35,7 @@ export function PatientCardPage() {
         description="Данные пациента по разделам карточки."
       />
       <PatientHeader patient={card.patient} />
-      {card.hasDraft && <p role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Есть локальный черновик. Изменения восстановятся после повторного входа в этой вкладке. Для записи в систему нажмите «Сохранить».</p>}
+      {card.hasDraft && <p role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Есть несохранённые изменения. При выходе по бездействию предложим восстановить их после входа в этой вкладке. Для записи в систему нажмите «Сохранить».</p>}
       <PatientLockBar
         lockLabel={card.lockLabel}
         lockedByOther={card.lockedByOther}

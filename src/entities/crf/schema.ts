@@ -1,4 +1,4 @@
-import catalog from "./catalog.json";
+import catalog from "./catalog.json" with { type: "json" };
 
 export type CrfFieldType = "text" | "number" | "date";
 
