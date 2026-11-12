@@ -17,7 +17,7 @@ export function AuditTable({ rows }: { rows: AuditEvent[] }) {
               ].map((label) => (
                 <th
                   key={label}
-                  className="whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-3 text-left font-extrabold text-slate-600"
+                  className="whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-3 text-left font-semibold text-slate-600"
                 >
                   {label}
                 </th>

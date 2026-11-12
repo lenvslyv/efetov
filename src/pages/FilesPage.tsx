@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "@/api/mock";
 import { tryApi } from "@/api/errors";
 import { useRuntime } from "@/api/useRuntime";
@@ -13,6 +13,9 @@ export function FilesPage() {
   const { files, folders = [] } = useRuntime();
   const { user, pwr } = useAuth();
   const { showToast } = useToast();
+  useEffect(() => {
+    void api.refreshFiles().catch(error => showToast(error.message));
+  }, [showToast]);
   const fileInput = useRef<HTMLInputElement>(null);
   const [parent, setParent] = useState("");
   const [folderName, setFolderName] = useState("");
@@ -98,6 +101,16 @@ export function FilesPage() {
               fail(error);
             }
           })();
+        }}
+        onDeleteFolder={async (path) => {
+          if (!user || !pwr.canFilesManage) return;
+          const count = files.filter(file => file.folder === path || file.folder.startsWith(path + " / ")).length;
+          if (!window.confirm(`Удалить папку «${path}» и всё её содержимое?\nБудут удалены все вложенные папки и файлы (файлов: ${count}).\nОтменить удаление будет невозможно.`)) return;
+          const result = await tryApi(() => api.deleteFolder(user, path), error => showToast(error.message));
+          if (result.ok) {
+            if (parent === path || parent.startsWith(path + " / ")) setParent("");
+            showToast("Папка удалена со всем содержимым");
+          }
         }}
         onDelete={async (name) => {
           if (!user) return;

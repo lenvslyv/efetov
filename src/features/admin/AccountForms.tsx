@@ -1,4 +1,5 @@
 import { FormEvent, useState } from "react";
+import { passwordError } from "./password";
 import type { AccountProfileInput, AccountRecord } from "@/entities/user/types";
 import { Button, Card, Label, Modal, TextInput } from "@/shared/ui";
 
@@ -59,6 +60,8 @@ export function CreateAccountDialog({
     event.preventDefault();
     setPending(true);
     setError("");
+    const validation = passwordError(password, passwordRepeat);
+    if (validation) { setError(validation); setPending(false); return; }
     void onSubmit({ name, login, email, password, passwordRepeat })
       .catch((reason: unknown) => {
         setError(reason instanceof Error ? reason.message : "Не удалось создать пользователя");
@@ -67,9 +70,9 @@ export function CreateAccountDialog({
   };
 
   return (
-    <Modal onClose={onClose}>
+    <Modal title="Добавить пользователя" onClose={onClose}>
       <Card className="p-6">
-        <h2 className="text-xl font-black">Добавить пользователя</h2>
+        <h2 className="text-xl font-semibold">Добавить пользователя</h2>
         <form onSubmit={submit} className="mt-4 space-y-3">
           <Field id="new-name" label="ФИО" value={name} onChange={setName} autoComplete="name" />
           <Field id="new-login" label="Логин" value={login} onChange={setLogin} autoComplete="off" />
@@ -118,9 +121,9 @@ export function EditAccountDialog({
   };
 
   return (
-    <Modal onClose={onClose}>
+    <Modal title="Изменить учётную запись" onClose={onClose}>
       <Card className="p-6">
-        <h2 className="text-xl font-black">Изменить учётную запись</h2>
+        <h2 className="text-xl font-semibold">Изменить учётную запись</h2>
         <form onSubmit={submit} className="mt-4 space-y-3">
           <Field id="edit-name" label="ФИО" value={name} onChange={setName} autoComplete="name" />
           <Field id="edit-login" label="Логин" value={login} onChange={setLogin} autoComplete="off" />
@@ -158,6 +161,8 @@ export function PasswordDialog({
     event.preventDefault();
     setPending(true);
     setError("");
+    const validation = passwordError(password, passwordRepeat);
+    if (validation) { setError(validation); setPending(false); return; }
     void onSubmit({ password, passwordRepeat })
       .catch((reason: unknown) => {
         setError(reason instanceof Error ? reason.message : "Не удалось сменить пароль");
@@ -166,9 +171,9 @@ export function PasswordDialog({
   };
 
   return (
-    <Modal onClose={onClose}>
+    <Modal title="Сменить пароль" onClose={onClose}>
       <Card className="p-6">
-        <h2 className="text-xl font-black">Сменить пароль</h2>
+        <h2 className="text-xl font-semibold">Сменить пароль</h2>
         <p className="mt-2 text-sm text-slate-500">{account.name}</p>
         <form onSubmit={submit} className="mt-4 space-y-3">
           <Field id="change-password" label="Новый пароль" value={password} onChange={setPassword} type="password" autoComplete="new-password" />

@@ -90,9 +90,7 @@ def can_view_section(role: str, section_id: int) -> bool:
 
 
 def can_edit_section(role: str, section_id: int) -> bool:
-    """Право заполнения. Ограничение «только свои карточки» не применяется:
-    разделы 1–10 и 11–15 одной карточки заполняют разные роли.
-    """
+    """Section rights; stationary ownership is also enforced by the API."""
     if section_by_id(section_id) is None:
         return False
     if role == "leader":

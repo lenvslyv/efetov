@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { EMPTY_ACCOUNT_FILTERS, selectAccounts, type AccountSort } from "@/features/admin/filter";
 import { api } from "@/api/mock";
 import { tryApi } from "@/api/errors";
 import type { AccountProfileInput, AccountRecord, AssignableRole } from "@/entities/user/types";
@@ -8,7 +9,7 @@ import {
   PasswordDialog,
 } from "@/features/admin/AccountForms";
 import { useAuth } from "@/features/auth/useAuth";
-import { Badge, Button, PageHeader } from "@/shared/ui";
+import { Badge, Button, Label, TextInput, Select, PageHeader } from "@/shared/ui";
 import { useToast } from "@/shared/ui/toast";
 
 const ROLE_COLUMNS: Array<{ role: AssignableRole; label: string }> = [
@@ -25,6 +26,14 @@ export function AdminPage() {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<AccountRecord | null>(null);
   const [passwordFor, setPasswordFor] = useState<AccountRecord | null>(null);
+  const [filters, setFilters] = useState(EMPTY_ACCOUNT_FILTERS);
+  const [sort, setSort] = useState<AccountSort>({ key: "name", dir: "asc" });
+  const visibleRows = selectAccounts(rows, filters, sort);
+  const sortButton = (key: AccountSort["key"], label: string) => (
+    <button type="button" onClick={() => setSort(current => ({ key, dir: current.key === key && current.dir === "asc" ? "desc" : "asc" }))}>
+      {label} {sort.key === key ? sort.dir === "asc" ? "↑" : "↓" : "↕"}
+    </button>
+  );
 
   useEffect(() => {
     if (!user) return;
@@ -140,21 +149,34 @@ export function AdminPage() {
           Добавить пользователя
         </Button>
       </div>
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div><Label htmlFor="account-filter-name">ФИО</Label><TextInput id="account-filter-name" value={filters.name} onChange={event => setFilters({ ...filters, name: event.target.value })} /></div>
+        <div><Label htmlFor="account-filter-login">Логин</Label><TextInput id="account-filter-login" value={filters.login} onChange={event => setFilters({ ...filters, login: event.target.value })} /></div>
+        <div><Label htmlFor="account-filter-role">Назначенная роль</Label><Select id="account-filter-role" value={filters.role} onChange={event => setFilters({ ...filters, role: event.target.value })}>
+          <option value="">Все роли</option>{ROLE_COLUMNS.map(column => <option key={column.role} value={column.role}>{column.label}</option>)}
+        </Select></div>
+        <div><Label htmlFor="account-filter-status">Статус</Label><Select id="account-filter-status" value={filters.status} onChange={event => setFilters({ ...filters, status: event.target.value })}>
+          <option value="">Все статусы</option><option value="active">Активна</option><option value="blocked">Заблокирована</option>
+        </Select></div>
+        <div className="flex items-end"><Button type="button" variant="secondary" onClick={() => { setFilters(EMPTY_ACCOUNT_FILTERS); setSort({ key: "name", dir: "asc" }); }}>Сбросить фильтры</Button></div>
+      </div>
+      <p className="mb-2 text-sm text-slate-500">Найдено: {visibleRows.length} из {rows.length}</p>
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
-                <th className="border-b border-slate-200 bg-slate-50 px-3 py-3 text-left font-extrabold text-slate-600" rowSpan={2}>
-                  ФИО
+                <th className="border-b border-slate-200 bg-slate-50 px-3 py-3 text-left font-semibold text-slate-600" rowSpan={2}>
+                  {sortButton("name", "ФИО")}
                 </th>
-                <th className="border-b border-slate-200 bg-slate-50 px-3 py-3 text-left font-extrabold text-slate-600" rowSpan={2}>
-                  УЗ
+                <th className="border-b border-slate-200 bg-slate-50 px-3 py-3 text-left font-semibold text-slate-600" rowSpan={2}>
+                  {sortButton("login", "УЗ")}
                 </th>
-                <th className="border-b border-slate-200 bg-slate-50 px-3 py-3 text-center font-extrabold text-slate-600" colSpan={3}>
+                <th className="border-b border-slate-200 bg-slate-50 px-3 py-3 text-center font-semibold text-slate-600" colSpan={3}>
                   Назначенные права
                 </th>
-                <th className="sticky right-0 z-10 border-b border-slate-200 bg-slate-50 px-3 py-3 text-left font-extrabold text-slate-600 shadow-[-8px_0_8px_-8px_rgba(15,23,42,0.35)]" rowSpan={2}>
+                <th className="border-b border-slate-200 bg-slate-50 px-3 py-3 text-left" rowSpan={2}>{sortButton("blocked", "Статус")}</th>
+                <th className="sticky right-0 z-10 border-b border-slate-200 bg-slate-50 px-3 py-3 text-left font-semibold text-slate-600 shadow-[-8px_0_8px_-8px_rgba(15,23,42,0.35)]" rowSpan={2}>
                   Действия
                 </th>
               </tr>
@@ -162,15 +184,16 @@ export function AdminPage() {
                 {ROLE_COLUMNS.map((column) => (
                   <th
                     key={column.role}
-                    className="border-b border-slate-200 bg-slate-50 px-3 py-3 text-center font-extrabold text-slate-600"
+                    className="border-b border-slate-200 bg-slate-50 px-3 py-3 text-center font-semibold text-slate-600"
                   >
-                    {column.label}
+                    {sortButton(column.role, column.label)}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {rows.map((account) => (
+              {visibleRows.length === 0 && <tr><td colSpan={7} className="p-4 text-center text-slate-500">Пользователи не найдены</td></tr>}
+              {visibleRows.map((account) => (
                 <tr key={account.id} className="group hover:bg-slate-50">
                   <td className="border-b border-slate-200 px-3 py-3 font-bold">
                     <div>{account.name}</div>
@@ -185,7 +208,7 @@ export function AdminPage() {
                     <td key={column.role} className="border-b border-slate-200 px-3 py-3 text-center">
                       <input
                         type="checkbox"
-                        className="h-4 w-4 accent-teal-700"
+                        className="h-4 w-4 accent-blue-700"
                         checked={account.roles.includes(column.role)}
                         disabled={pendingId === account.id}
                         aria-label={`${account.name}, ${column.label}`}
@@ -193,6 +216,7 @@ export function AdminPage() {
                       />
                     </td>
                   ))}
+                  <td className="border-b border-slate-200 px-3 py-3">{account.blocked ? "Заблокирована" : "Активна"}</td>
                   <td className="sticky right-0 z-10 border-b border-slate-200 bg-white px-3 py-3 shadow-[-8px_0_8px_-8px_rgba(15,23,42,0.35)] group-hover:bg-slate-50">
                     <div className="flex w-52 flex-wrap gap-2">
                       <Button type="button" variant="secondary" onClick={() => setEditing(account)}>

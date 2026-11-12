@@ -19,6 +19,15 @@ class User(Base):
     removed_at: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
+class AuthSession(Base):
+    __tablename__ = "auth_sessions"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    last_seen_at: Mapped[str] = mapped_column(String, nullable=False)
+    revoked: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
 class Patient(Base):
     __tablename__ = "patients"
 

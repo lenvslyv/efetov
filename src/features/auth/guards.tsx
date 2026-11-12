@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { can, type Permission } from "@/entities/user/roles";
-import { returnPathFromState } from "./redirect";
+import { restoredPath } from "./recovery";
 import { useAuth } from "./useAuth";
 
 export function RequireAuth() {
@@ -14,9 +14,8 @@ export function RequireAuth() {
 
 export function GuestOnly() {
   const { user } = useAuth();
-  const location = useLocation();
   if (user) {
-    return <Navigate to={returnPathFromState(location.state)} replace />;
+    return <Navigate to={restoredPath(user.id)} replace />;
   }
   return <Outlet />;
 }

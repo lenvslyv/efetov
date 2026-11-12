@@ -1,4 +1,6 @@
 import { useNavigate, useParams } from "react-router-dom";
+import { useEffect } from "react";
+import { finishOperation } from "@/shared/lib/performance";
 import { useAuth } from "@/features/auth/useAuth";
 import { CrfBlockForm } from "@/features/patient/CrfBlockForm";
 import { CrfTabs } from "@/features/patient/CrfTabs";
@@ -13,6 +15,12 @@ export function PatientCardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const card = usePatientCard(id);
+  useEffect(() => {
+    if (!card.patient) return;
+    let second = 0;
+    const first = requestAnimationFrame(() => { second = requestAnimationFrame(() => finishOperation("patient.open")); });
+    return () => { cancelAnimationFrame(first); cancelAnimationFrame(second); };
+  }, [id, Boolean(card.patient)]);
 
   if (!card.patient) {
     return (
@@ -27,6 +35,7 @@ export function PatientCardPage() {
         description="Данные пациента по разделам карточки."
       />
       <PatientHeader patient={card.patient} />
+      {card.hasDraft && <p role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Есть локальный черновик. Изменения восстановятся после повторного входа в этой вкладке. Для записи в систему нажмите «Сохранить».</p>}
       <PatientLockBar
         lockLabel={card.lockLabel}
         lockedByOther={card.lockedByOther}

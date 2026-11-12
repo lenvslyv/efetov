@@ -1,99 +1,84 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/api/mock";
 import { useAuth } from "@/features/auth/useAuth";
-import { hasUnsavedChanges } from "@/features/patient/unsaved";
+import { browserSession, recordActivity, sessionKey } from "@/features/auth/session";
 import { IDLE_TIMEOUT_MS, IDLE_WARNING_MS } from "@/shared/config/brand";
 import { Button, Card, Modal } from "@/shared/ui";
 import { useToast } from "@/shared/ui/toast";
 
-const ACTIVITY_EVENTS = ["mousemove", "mousedown", "keydown", "scroll", "touchstart"];
-const TOUCH_INTERVAL_MS = 60_000;
+const EVENTS = ["pointermove", "pointerdown", "keydown", "scroll", "touchstart"];
 
 export function IdleTimeout() {
   const { user, logout } = useAuth();
   const { showToast } = useToast();
   const [warning, setWarning] = useState(false);
-  const warningRef = useRef(false);
-  const logoutTimer = useRef<number | null>(null);
-  const warningTimer = useRef<number | null>(null);
-  const lastTouch = useRef(0);
-  const stayRef = useRef<() => void>(() => undefined);
+  const stay = useRef<() => void>(() => undefined);
 
   useEffect(() => {
     if (!user) return;
-
-    const clearTimers = () => {
-      if (logoutTimer.current) window.clearTimeout(logoutTimer.current);
-      if (warningTimer.current) window.clearTimeout(warningTimer.current);
-      logoutTimer.current = null;
-      warningTimer.current = null;
+    let expired = false;
+    let pingTimer: number | undefined;
+    const pingKey = sessionKey() + ":ping";
+    const check = () => {
+      const current = browserSession();
+      if (!current || expired) return;
+      const remaining = IDLE_TIMEOUT_MS - (Date.now() - current.activity);
+      if (remaining <= 0) {
+        expired = true;
+        setWarning(false);
+        logout("idle");
+        showToast("Сессия завершена после 15 минут бездействия. После входа в ту же УЗ восстановятся страница и черновик.");
+      } else setWarning(remaining <= IDLE_WARNING_MS);
     };
-
-    const expire = () => {
-      const dirty = hasUnsavedChanges();
-      warningRef.current = false;
+    const ping = () => {
+      if (!browserSession() || expired) return;
+      const last = Number(localStorage.getItem(pingKey) || 0);
+      if (Date.now() - last < 900) return;
+      localStorage.setItem(pingKey, String(Date.now()));
+      void api.touchSession().catch(() => undefined);
+    };
+    const activity = (event?: Event) => {
+      if (event && !event.isTrusted) return;
+      // A suspended tab must check expiry BEFORE accepting new activity.
+      check();
+      if (expired || !browserSession()) return;
+      recordActivity();
       setWarning(false);
-      logout("idle");
-      showToast(
-        dirty
-          ? "Сессия завершена из-за неактивности (15 минут). Несохранённые изменения не записаны."
-          : "Сессия завершена из-за неактивности (15 минут)."
-      );
+      const last = Number(localStorage.getItem(pingKey) || 0);
+      if (Date.now() - last >= 10_000) ping();
+      window.clearTimeout(pingTimer);
+      pingTimer = window.setTimeout(ping, 1000);
     };
-
-    const openWarning = () => {
-      if (!hasUnsavedChanges()) return;
-      warningRef.current = true;
-      setWarning(true);
-    };
-
-    const arm = () => {
-      if (warningRef.current) return;
-      clearTimers();
-      const now = Date.now();
-      if (now - lastTouch.current >= TOUCH_INTERVAL_MS) {
-        lastTouch.current = now;
-        void api.touchSession().catch(() => undefined);
-      }
-      warningTimer.current = window.setTimeout(
-        openWarning,
-        Math.max(IDLE_TIMEOUT_MS - IDLE_WARNING_MS, 0)
-      );
-      logoutTimer.current = window.setTimeout(expire, IDLE_TIMEOUT_MS);
-    };
-
-    stayRef.current = () => {
-      warningRef.current = false;
-      setWarning(false);
-      lastTouch.current = 0;
-      arm();
-    };
-
-    warningRef.current = false;
-    setWarning(false);
-    arm();
-    const onActivity = () => arm();
-    ACTIVITY_EVENTS.forEach((event) => window.addEventListener(event, onActivity));
+    const visible = () => { if (!document.hidden) check(); };
+    stay.current = () => activity();
+    check();
+    const timer = window.setInterval(check, 1000);
+    EVENTS.forEach(event => window.addEventListener(event, activity, { passive: true }));
+    window.addEventListener("storage", check);
+    window.addEventListener("focus", check);
+    document.addEventListener("visibilitychange", visible);
     return () => {
-      clearTimers();
-      ACTIVITY_EVENTS.forEach((event) => window.removeEventListener(event, onActivity));
+      window.clearInterval(timer);
+      window.clearTimeout(pingTimer);
+      EVENTS.forEach(event => window.removeEventListener(event, activity));
+      window.removeEventListener("storage", check);
+      window.removeEventListener("focus", check);
+      document.removeEventListener("visibilitychange", visible);
     };
   }, [user, logout, showToast]);
 
   if (!warning) return null;
-
   return (
-    <Modal onClose={() => undefined}>
+    <Modal title="Сеанс скоро завершится" dismissible={false} onClose={() => undefined}>
       <Card className="p-6">
-        <h2 className="text-xl font-black">Несохранённые изменения</h2>
+        <h2 className="text-xl font-semibold">Сеанс скоро завершится</h2>
         <p className="mt-3 text-slate-700">
-          Есть несохранённые изменения. Через минуту сессия завершится из-за
-          бездействия, и эти изменения не сохранятся.
+          До выхода по бездействию осталось меньше минуты. Черновик останется в этой
+          вкладке и восстановится после входа в ту же учётную запись.
+          Для записи данных в систему нажмите «Сохранить» в карточке.
         </p>
         <div className="mt-5 flex justify-end">
-          <Button type="button" onClick={() => stayRef.current()}>
-            Продолжить работу
-          </Button>
+          <Button type="button" onClick={() => stay.current()}>Продолжить работу</Button>
         </div>
       </Card>
     </Modal>

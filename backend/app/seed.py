@@ -3,7 +3,7 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
-from .models import AuditEvent, Patient, StoredFile, StoredFolder, User
+from .models import AuditEvent, AuthSession, Patient, StoredFile, StoredFolder, User
 from .rbac import lock_owner_id
 from .security import hash_password
 
@@ -131,6 +131,7 @@ def reset_database(db: Session) -> None:
     db.query(StoredFolder).delete()
     db.query(StoredFile).delete()
     db.query(Patient).delete()
+    db.query(AuthSession).delete()
     db.query(User).delete()
     db.commit()
     seed_database(db)

@@ -3,6 +3,9 @@ import { visibleNav } from "@/shared/config/nav";
 import { APP_MARK, APP_NAME } from "@/shared/config/brand";
 import { cn } from "@/shared/lib/cn";
 import { useAuth } from "@/features/auth/useAuth";
+import { Activity, ClipboardList, FolderOpen, History, UsersRound } from "lucide-react";
+
+const icons = { "/journal": ClipboardList, "/files": FolderOpen, "/audit": History, "/admin": UsersRound };
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { user, roleName } = useAuth();
@@ -10,34 +13,38 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <>
-      <div className="text-xs font-black uppercase tracking-widest text-teal-300">
+      <div className="mb-5 flex size-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm"><Activity className="size-6" /></div>
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-300">
         {APP_MARK}
       </div>
-      <div className="mt-3 text-xl font-black">{APP_NAME}</div>
-      <div className="mt-5 rounded-2xl bg-white/10 p-4">
+      <div className="mt-2 text-lg font-semibold leading-6 tracking-tight">{APP_NAME}</div>
+      <div className="mt-6 rounded-lg border border-slate-800 bg-slate-900/70 p-3">
         <div className="text-xs text-slate-400">Текущая роль</div>
-        <div className="mt-1 font-black">{roleName}</div>
+        <div className="mt-1 font-semibold">{roleName}</div>
         <div className="mt-1 text-xs text-slate-400">
           {user?.id} · {user?.login}
         </div>
       </div>
-      <nav className="mt-6 space-y-2">
-        {items.map((item) => (
+      <nav aria-label="Основная навигация" className="mt-6 space-y-1">
+        {items.map((item) => {
+          const Icon = icons[item.to as keyof typeof icons];
+          return (
           <NavLink
             key={item.to}
             to={item.to}
             onClick={onNavigate}
             className={({ isActive }) =>
               cn(
-                "flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left font-bold text-slate-300 hover:bg-white/10 hover:text-white",
-                isActive && "bg-teal-700 text-white hover:bg-teal-700 hover:text-white"
+                "flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium text-slate-400 transition-colors hover:bg-slate-900 hover:text-white",
+                isActive && "bg-blue-600 text-white shadow-sm hover:bg-blue-600 hover:text-white"
               )
             }
           >
-            {item.label}
+            {Icon && <Icon className="size-[18px] shrink-0" />}<span>{item.label}</span>
           </NavLink>
-        ))}
+        ); })}
       </nav>
+      <div className="mt-auto pt-8 text-[11px] leading-5 text-slate-500">Клиническое исследование<br />Единое рабочее пространство</div>
     </>
   );
 }

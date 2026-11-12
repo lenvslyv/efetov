@@ -1,6 +1,6 @@
 import type { Permission } from "@/entities/user/roles";
 import type { AccountRecord, DemoUser, SessionUser } from "@/entities/user/types";
-import { loadToken, saveToken } from "@/features/auth/session";
+import { loadToken, saveToken, saveAuthenticated } from "@/features/auth/session";
 import { ForbiddenError } from "./errors";
 import type {
   AppApi,
@@ -8,6 +8,7 @@ import type {
   RuntimeSnapshot,
 } from "./client";
 import { EMPTY_RUNTIME } from "./client";
+import { startOperation, finishOperation, cancelOperation } from "@/shared/lib/performance";
 
 const API_ROOT =
   (import.meta.env.VITE_API_URL as string | undefined) ||
@@ -37,8 +38,9 @@ function errorMessage(data: { detail?: unknown }, status: number): string {
   return `Ошибка API (${status})`;
 }
 
-function rejectUnauthorized(status: number, message: string): boolean {
+function rejectUnauthorized(status: number, message: string, token: string | null): boolean {
   if (status !== 401) return false;
+  if (token !== loadToken()) return true;
   saveToken(null);
   setSnapshot(EMPTY_RUNTIME);
   onUnauthorized?.(message);
@@ -53,6 +55,28 @@ function setSnapshot(next: RuntimeSnapshot) {
   snapshot = next;
   emit();
 }
+
+function upsertPatient(patient: RuntimeSnapshot["patients"][number], token: string | null) {
+  if (token !== loadToken()) return;
+  const exists = snapshot.patients.some(item => item.id === patient.id);
+  setSnapshot({ ...snapshot, patients: exists
+    ? snapshot.patients.map(item => item.id === patient.id ? patient : item)
+    : [...snapshot.patients, patient] });
+}
+
+async function refreshFiles() {
+  const token = loadToken();
+  const data = await request<Pick<RuntimeSnapshot, "files" | "folders">>("/api/file-index");
+  if (token === loadToken()) setSnapshot({ ...snapshot, ...data });
+}
+
+async function refreshAudit() {
+  const token = loadToken();
+  const audit = await request<RuntimeSnapshot["audit"]>("/api/audit");
+  if (token === loadToken()) setSnapshot({ ...snapshot, audit });
+}
+
+export function clearRuntime() { setSnapshot(EMPTY_RUNTIME); }
 
 if (import.meta.hot) {
   const previous = import.meta.hot.data.snapshot as RuntimeSnapshot | undefined;
@@ -69,10 +93,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   const token = loadToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  const response = await fetch(`${API_ROOT}${path}`, { ...init, headers });
+  const response = await fetch(`${API_ROOT}${path}`, { ...init, headers, cache: "no-store" });
   if (response.status === 204) return undefined as T;
   const data = await response.json().catch(() => ({}));
-  if (rejectUnauthorized(response.status, errorMessage(data, response.status))) {
+  if (rejectUnauthorized(response.status, errorMessage(data, response.status), token)) {
     throw new Error(errorMessage(data, response.status));
   }
   if (response.status === 403) {
@@ -99,7 +123,7 @@ async function downloadWorkbook(path: string, filename: string, init: RequestIni
   const data = response.ok ? null : await response.json().catch(() => ({}));
   if (
     data &&
-    rejectUnauthorized(response.status, errorMessage(data, response.status))
+    rejectUnauthorized(response.status, errorMessage(data, response.status), token)
   ) {
     throw new Error(errorMessage(data, response.status));
   }
@@ -125,13 +149,23 @@ async function downloadWorkbook(path: string, filename: string, init: RequestIni
 }
 
 async function refreshRuntime(): Promise<RuntimeSnapshot> {
+  const token = loadToken();
   if (!loadToken()) {
     setSnapshot(EMPTY_RUNTIME);
     return snapshot;
   }
-  const next = await request<RuntimeSnapshot>("/api/runtime");
-  setSnapshot(next);
-  return next;
+  startOperation("journal.load");
+  try {
+    const next = await request<RuntimeSnapshot>("/api/runtime?include_audit=false&include_files=false");
+    if (token === loadToken()) {
+      setSnapshot({ ...next, audit: snapshot.audit, files: snapshot.files, folders: snapshot.folders });
+      requestAnimationFrame(() => requestAnimationFrame(() => finishOperation("journal.load")));
+    } else cancelOperation("journal.load");
+  } catch (error) {
+    cancelOperation("journal.load");
+    throw error;
+  }
+  return snapshot;
 }
 
 export const api: AppApi = {
@@ -158,7 +192,8 @@ export const api: AppApi = {
     if (!response.ok) {
       throw new Error(data.detail || "Ошибка входа");
     }
-    saveToken(data.token);
+    clearRuntime();
+    saveAuthenticated(data.user, data.token);
     await refreshRuntime();
     return data.user as SessionUser;
   },
@@ -173,6 +208,8 @@ export const api: AppApi = {
   },
 
   refreshRuntime,
+  refreshAudit,
+  refreshFiles,
 
   async resetDemoData() {
     setSnapshot(await request("/api/reset-demo", { method: "POST" }));
@@ -197,6 +234,7 @@ export const api: AppApi = {
   },
 
   async createPatient(_actor, input: CreatePatientInput) {
+    const token = loadToken();
     const patient = await request<RuntimeSnapshot["patients"][number]>(
       "/api/patients",
       {
@@ -204,7 +242,7 @@ export const api: AppApi = {
         body: JSON.stringify(input),
       }
     );
-    await refreshRuntime();
+    upsertPatient(patient, token);
     return patient;
   },
 
@@ -218,6 +256,7 @@ export const api: AppApi = {
   },
 
   async savePatientSections(_actor, patientId, sections) {
+    const token = loadToken();
     const patient = await request<RuntimeSnapshot["patients"][number]>(
       `/api/patients/${patientId}/sections`,
       {
@@ -229,25 +268,27 @@ export const api: AppApi = {
         }),
       }
     );
-    await refreshRuntime();
+    upsertPatient(patient, token);
     return patient;
   },
 
   async lockPatient(_actor, patientId) {
+    const token = loadToken();
     const patient = await request<RuntimeSnapshot["patients"][number]>(
       `/api/patients/${patientId}/lock`,
       { method: "POST" }
     );
-    await refreshRuntime();
+    upsertPatient(patient, token);
     return patient;
   },
 
   async unlockPatient(_actor, patientId) {
+    const token = loadToken();
     const patient = await request<RuntimeSnapshot["patients"][number]>(
       `/api/patients/${patientId}/unlock`,
       { method: "POST" }
     );
-    await refreshRuntime();
+    upsertPatient(patient, token);
     return patient;
   },
 
@@ -256,14 +297,17 @@ export const api: AppApi = {
   },
 
   async endSession(_actor, reason) {
+    const token = loadToken();
     try {
       await request("/api/session/end", {
         method: "POST",
         body: JSON.stringify({ reason }),
       });
     } finally {
-      saveToken(null);
-      setSnapshot(EMPTY_RUNTIME);
+      if (token === loadToken()) {
+        saveToken(null);
+        clearRuntime();
+      }
     }
   },
 
@@ -272,8 +316,13 @@ export const api: AppApi = {
       method: "POST",
       body: JSON.stringify({ parent, name }),
     });
-    await refreshRuntime();
+    await refreshFiles();
     return created.path;
+  },
+
+  async deleteFolder(_actor, path) {
+    await request(`/api/folders?path=${encodeURIComponent(path)}&confirmed=true`, { method: "DELETE" });
+    await refreshFiles();
   },
 
   async uploadFile(_actor, file, folder, comment) {
@@ -285,7 +334,7 @@ export const api: AppApi = {
       method: "POST",
       body,
     });
-    await refreshRuntime();
+    await refreshFiles();
     return stored;
   },
 
@@ -328,7 +377,7 @@ export const api: AppApi = {
     await request(`/api/files?name=${encodeURIComponent(name)}`, {
       method: "DELETE",
     });
-    await refreshRuntime();
+    await refreshFiles();
   },
 
   async listAccounts(_actor) {

@@ -4,19 +4,20 @@ from jwt.exceptions import InvalidTokenError
 from sqlalchemy.orm import Session
 
 from .database import get_db
-from .models import User
+from .models import AuthSession, User
 from .rbac import MESSAGES, ROLE_LABELS, can, now
-from .security import SESSION_EXPIRED, decode_token, idle_expired, mark_seen
+from .security import SESSION_EXPIRED, decode_token, idle_expired
 
 bearer = HTTPBearer(auto_error=False)
 
 
 class Actor:
-    def __init__(self, user: User):
+    def __init__(self, user: User, session: AuthSession | None = None):
         self.id = user.id
         self.login = user.login
         self.role = user.role
         self.name = user.name
+        self.session = session
 
 
 def deny(db: Session, actor: Actor, permission: str, detail: str | None = None):
@@ -58,13 +59,13 @@ def actor_from_token(
         raise HTTPException(status_code=401, detail="Пользователь не найден")
     if user.blocked:
         raise HTTPException(status_code=401, detail="Учётная запись заблокирована")
-    if idle_expired(user):
+    session = db.get(AuthSession, payload.get("sid", ""))
+    if not session or session.user_id != user.id or session.revoked:
+        raise HTTPException(status_code=401, detail="Сессия недействительна")
+    if idle_expired(session):
         if not allow_idle:
             raise HTTPException(status_code=401, detail=SESSION_EXPIRED)
-    else:
-        mark_seen(user)
-        db.commit()
-    return Actor(user)
+    return Actor(user, session)
 
 
 def get_current_user(

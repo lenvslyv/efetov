@@ -1,7 +1,9 @@
 import json
+import logging
 import os
 import re
 import time
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -9,19 +11,20 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import text
+from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 
 from .brazhnikov import build_final_workbook
 from .crf import apply_section_values, empty_blocks, operation_date_from
-from .database import Base, SessionLocal, engine, get_db
+from .database import Base, SessionLocal, configure_database, engine, get_db
 from .deps import Actor, deny, get_current_user, get_session_user, require_permission
-from .models import AuditEvent, Patient, StoredFile, StoredFolder, User
+from .models import AuditEvent, AuthSession, Patient, StoredFile, StoredFolder, User
 from .rbac import (
     ASSIGNABLE_ROLES,
     ROLE_LABELS,
     SECTIONS,
     can_edit_section,
+    can,
     center_code,
     next_code,
     next_patient_id,
@@ -31,7 +34,7 @@ from .rbac import (
 )
 from .security import create_token, hash_password, mark_seen, verify_password
 from .seed import add_test_pair_accounts, load_seed, reset_database, seed_database
-from .serialize import file_to_dict, patient_to_dict, user_to_session
+from .serialize import file_to_dict, patient_to_dict, patient_to_json, user_to_session
 from .storage import (
     clean_file_name,
     clean_folder_name,
@@ -41,6 +44,7 @@ from .storage import (
     require_folder,
     upload_path,
     write_upload,
+    delete_folder_tree,
 )
 
 
@@ -104,15 +108,20 @@ def users_map(db: Session) -> dict[str, User]:
     return {user.id: user for user in db.query(User).all()}
 
 
-def runtime_payload(db: Session) -> dict:
+def runtime_payload(db: Session, actor: Actor, *, include_audit: bool = True, include_files: bool = True, encoded_patients: bool = False) -> dict:
     people = users_map(db)
     patients = [
-        patient_to_dict(item, people)
+        (patient_to_json if encoded_patients else patient_to_dict)(item, people)
         for item in db.query(Patient).order_by(Patient.id.asc()).all()
     ]
-    files = [file_to_dict(item) for item in db.query(StoredFile).all()]
-    folders = sorted(known_folders(db))
-    audit = [
+    files = [file_to_dict(item) for item in db.query(StoredFile).all()] if include_files else []
+    folders = sorted(known_folders(db)) if include_files else []
+    audit = audit_payload(db) if include_audit and can(actor.role, "audit.view") else []
+    return {"patients": patients, "files": files, "folders": folders, "audit": audit}
+
+
+def audit_payload(db: Session) -> list[dict]:
+    return [
         {
             "time": item.time,
             "userId": item.user_id,
@@ -122,7 +131,17 @@ def runtime_payload(db: Session) -> dict:
         }
         for item in db.query(AuditEvent).order_by(AuditEvent.id.desc()).all()
     ]
-    return {"patients": patients, "files": files, "folders": folders, "audit": audit}
+
+
+def json_response(payload) -> Response:
+    # These serializers already return JSON primitives. Avoid FastAPI walking
+    # every clinical field again on the event-loop thread before encoding.
+    return Response(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), media_type="application/json")
+
+
+def require_patient_editor(db: Session, actor: Actor, patient: Patient) -> None:
+    if actor.role == "stationary" and patient.created_by != actor.id:
+        deny(db, actor, "crf.edit", "Врач стационара может редактировать только созданные им карточки")
 
 
 def add_audit(db: Session, actor: Actor, action: str, details: str):
@@ -202,6 +221,7 @@ def ensure_user_status_column() -> None:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    configure_database()
     Base.metadata.create_all(bind=engine)
     ensure_patient_editor_column()
     ensure_user_seen_column()
@@ -246,6 +266,20 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def private_responses(request, call_next):
+    started = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        logging.getLogger("uvicorn.error").exception("Request failed: %s %s", request.method, request.url.path)
+        raise
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Server-Timing"] = f"app;dur={(time.perf_counter() - started) * 1000:.1f}"
+    return response
+
+
 @app.get("/api/health")
 def health():
     return {"ok": True, "db": "sqlite"}
@@ -273,22 +307,39 @@ def login(body: LoginBody, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Учётная запись заблокирована")
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Неверный логин или пароль")
-    mark_seen(user)
+    session = AuthSession(id=uuid.uuid4().hex, user_id=user.id, last_seen_at=str(time.time()))
+    db.add(session)
     actor = Actor(user)
     add_audit(db, actor, "Вход в систему", body.details)
     db.commit()
-    return {"user": user_to_session(user), "token": create_token(user)}
+    return {"user": user_to_session(user), "token": create_token(user, session.id)}
 
 
 @app.get("/api/runtime")
-def get_runtime(_actor: Actor = Depends(get_current_user), db: Session = Depends(get_db)):
-    return runtime_payload(db)
+def get_runtime(include_audit: bool = True, include_files: bool = True, actor: Actor = Depends(get_current_user), db: Session = Depends(get_db)):
+    payload = runtime_payload(db, actor, include_audit=include_audit, include_files=include_files, encoded_patients=True)
+    patients = payload.pop("patients")
+    other = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    return Response('{"patients":[' + ','.join(patients) + '],' + other[1:], media_type="application/json")
+
+
+@app.get("/api/audit")
+def get_audit(actor: Actor = Depends(get_current_user), db: Session = Depends(get_db)):
+    require_permission(db, actor, "audit.view")
+    return json_response(audit_payload(db))
+
+
+@app.get("/api/file-index")
+def get_file_index(actor: Actor = Depends(get_current_user), db: Session = Depends(get_db)):
+    require_permission(db, actor, "files.download")
+    return {"files": [file_to_dict(item) for item in db.query(StoredFile).all()], "folders": sorted(known_folders(db))}
 
 
 @app.post("/api/reset-demo")
-def reset_demo(_actor: Actor = Depends(get_current_user), db: Session = Depends(get_db)):
+def reset_demo(actor: Actor = Depends(get_current_user), db: Session = Depends(get_db)):
+    require_permission(db, actor, "users.manage")
     reset_database(db)
-    return runtime_payload(db)
+    return json_response(runtime_payload(db, actor))
 
 
 @app.get("/api/export/final.xlsx")
@@ -298,6 +349,8 @@ def export_final_workbook(
 ):
     require_permission(db, actor, "export.run")
     patients = db.query(Patient).order_by(Patient.id.asc()).all()
+    db.expunge_all()
+    db.rollback()
     try:
         payload = build_final_workbook(patients)
     except FileNotFoundError:
@@ -322,6 +375,8 @@ def export_slice_workbook(
         )
     else:
         patients = []
+    db.expunge_all()
+    db.rollback()
     try:
         payload = build_final_workbook(patients)
     except FileNotFoundError:
@@ -350,7 +405,9 @@ def record_export(
 
 
 @app.post("/api/session/touch")
-def touch_session(_actor: Actor = Depends(get_current_user)):
+def touch_session(actor: Actor = Depends(get_current_user), db: Session = Depends(get_db)):
+    mark_seen(actor.session)
+    db.commit()
     return {"ok": True}
 
 
@@ -360,8 +417,7 @@ def end_session(
     actor: Actor = Depends(get_session_user),
     db: Session = Depends(get_db),
 ):
-    for patient in db.query(Patient).filter(Patient.lock_user_id == actor.id).all():
-        patient.lock_user_id = None
+    actor.session.revoked = 1
     action = "Выход по неактивности" if body.reason == "idle" else "Выход из системы"
     details = (
         "Автоматическое завершение сессии после 15 минут бездействия"
@@ -422,8 +478,15 @@ def ensure_unique_login(db: Session, login: str, user_id: str | None = None) -> 
 
 
 def check_new_password(password: str, repeat: str) -> None:
-    if not password:
-        raise HTTPException(status_code=400, detail="Введите пароль")
+    errors = []
+    if len(password) < 8:
+        errors.append("не менее 8 символов")
+    if sum(char.isalpha() for char in password) < 2:
+        errors.append("не менее 2 букв")
+    if sum(char in "0123456789" for char in password) < 2:
+        errors.append("не менее 2 цифр")
+    if errors:
+        raise HTTPException(status_code=400, detail="Пароль должен содержать: " + "; ".join(errors))
     if password != repeat:
         raise HTTPException(status_code=400, detail="Пароли не совпадают")
 
@@ -684,6 +747,7 @@ def save_sections(
                 f"Редактирование раздела «{section_label(section)}» недоступно для текущей роли",
             )
     patient = get_patient(db, patient_id)
+    require_patient_editor(db, actor, patient)
     if patient.lock_user_id and patient.lock_user_id != actor.id:
         deny(
             db,
@@ -725,6 +789,7 @@ def save_section(
     if not can_edit_section(actor.role, section):
         deny(db, actor, "crf.edit", f"Редактирование раздела «{label}» недоступно для текущей роли")
     patient = get_patient(db, patient_id)
+    require_patient_editor(db, actor, patient)
     if patient.lock_user_id and patient.lock_user_id != actor.id:
         deny(
             db,
@@ -752,7 +817,10 @@ def lock_patient(
     actor: Actor = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if actor.role not in {"stationary", "ambulatory", "leader"}:
+        deny(db, actor, "crf.edit")
     patient = get_patient(db, patient_id)
+    require_patient_editor(db, actor, patient)
     owner = patient.lock_user_id
     if owner and owner != actor.id and actor.role != "leader":
         deny(
@@ -763,7 +831,12 @@ def lock_patient(
         )
     if owner == actor.id:
         return patient_to_dict(patient, users_map(db))
-    patient.lock_user_id = actor.id
+    query = db.query(Patient).filter(Patient.id == patient_id)
+    if actor.role != "leader":
+        query = query.filter(or_(Patient.lock_user_id.is_(None), Patient.lock_user_id == actor.id))
+    if query.update({Patient.lock_user_id: actor.id}, synchronize_session=False) != 1:
+        db.rollback()
+        deny(db, actor, "crf.edit", "Карточка уже взята в работу другим пользователем")
     details = (
         f"Карточка {patient.code}: блокировка перехвачена у {owner}"
         if owner and owner != actor.id
@@ -792,7 +865,12 @@ def unlock_patient(
             "crf.edit",
             f"Снять блокировку карточки {patient.code} может только {owner} или руководитель",
         )
-    patient.lock_user_id = None
+    query = db.query(Patient).filter(Patient.id == patient_id)
+    if actor.role != "leader":
+        query = query.filter(Patient.lock_user_id == actor.id)
+    if query.update({Patient.lock_user_id: None}, synchronize_session=False) != 1:
+        db.rollback()
+        deny(db, actor, "crf.edit", "Блокировка изменилась. Обновите карточку")
     add_audit(db, actor, "Снятие блокировки", f"Карточка {patient.code}: блокировка снята")
     db.commit()
     db.refresh(patient)
@@ -820,6 +898,24 @@ def create_folder(
     add_audit(db, actor, "Создание папки", f"Создана папка «{path}»")
     db.commit()
     return {"path": path}
+
+
+@app.delete("/api/folders")
+def delete_folder(
+    path: str,
+    confirmed: bool = False,
+    actor: Actor = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_permission(db, actor, "files.manage")
+    if not confirmed:
+        raise HTTPException(status_code=400, detail="Подтвердите удаление папки со всем содержимым")
+    folder = require_folder(db, path)
+    if not folder:
+        raise HTTPException(status_code=400, detail="Корень хранилища удалять нельзя")
+    add_audit(db, actor, "Удаление папки", f"Удалена папка «{folder}» со всем содержимым")
+    files, folders = delete_folder_tree(db, folder)
+    return {"ok": True, "files": files, "folders": folders}
 
 
 @app.post("/api/files")

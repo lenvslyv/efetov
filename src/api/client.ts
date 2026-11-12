@@ -41,6 +41,8 @@ export interface AppApi {
   getRuntime(): RuntimeSnapshot;
   subscribe(listener: () => void): () => void;
   refreshRuntime(): Promise<RuntimeSnapshot>;
+  refreshAudit(): Promise<void>;
+  refreshFiles(): Promise<void>;
   resetDemoData(): Promise<void>;
   recordExport(actor: SessionUser, details: string): Promise<void>;
   downloadFinalExport(actor: SessionUser): Promise<void>;
@@ -57,6 +59,7 @@ export interface AppApi {
   endSession(actor: SessionUser, reason: "manual" | "idle"): Promise<void>;
   touchSession(): Promise<void>;
   createFolder(actor: SessionUser, parent: string, name: string): Promise<string>;
+  deleteFolder(actor: SessionUser, path: string): Promise<void>;
   uploadFile(actor: SessionUser, file: File, folder: string, comment: string): Promise<StoredFile>;
   downloadFile(actor: SessionUser, name: string): Promise<void>;
   deleteFile(actor: SessionUser, name: string): Promise<void>;

@@ -3,7 +3,7 @@ import { Outlet } from "react-router-dom";
 import { Header } from "./Header";
 import { IdleTimeout } from "./IdleTimeout";
 import { Sidebar } from "./Sidebar";
-import { Toast } from "@/shared/ui";
+import { Modal, Toast } from "@/shared/ui";
 import { useToast } from "@/shared/ui/toast";
 
 export function AppShell() {
@@ -11,27 +11,21 @@ export function AppShell() {
   const { toast } = useToast();
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-slate-50/80">
       <IdleTimeout />
-      <aside className="sticky top-0 hidden h-screen w-72 shrink-0 overflow-y-auto bg-slate-950 p-5 text-white lg:block">
+      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col overflow-y-auto border-r border-slate-800 bg-slate-950 p-5 text-white xl:flex">
         <Sidebar />
       </aside>
       {mobileMenu ? (
-        <div
-          className="fixed inset-0 z-30 bg-slate-950/60 lg:hidden"
-          onClick={() => setMobileMenu(false)}
-        >
-          <aside
-            className="h-full w-72 bg-slate-950 p-5 text-white"
-            onClick={(event) => event.stopPropagation()}
-          >
+        <Modal title="Навигация" onClose={() => setMobileMenu(false)}>
+          <aside className="rounded-xl bg-slate-950 p-6 text-white">
             <Sidebar onNavigate={() => setMobileMenu(false)} />
           </aside>
-        </div>
+        </Modal>
       ) : null}
       <main className="min-w-0 flex-1">
         <Header onOpenMenu={() => setMobileMenu(true)} />
-        <section className="p-5 lg:p-7">
+        <section className="mx-auto max-w-[1760px] p-4 sm:p-6 2xl:p-8">
           <Outlet />
         </section>
       </main>
