@@ -1,6 +1,6 @@
 import type { Permission } from "@/entities/user/roles";
 import type { AccountRecord, DemoUser, SessionUser } from "@/entities/user/types";
-import { loadToken, saveToken, saveAuthenticated } from "@/features/auth/session";
+import { loadToken, markSessionEnd, saveToken, saveAuthenticated } from "@/features/auth/session";
 import { ForbiddenError } from "./errors";
 import type {
   AppApi,
@@ -41,9 +41,11 @@ function errorMessage(data: { detail?: unknown }, status: number): string {
 function rejectUnauthorized(status: number, message: string, token: string | null): boolean {
   if (status !== 401) return false;
   if (token !== loadToken()) return true;
+  if (token) markSessionEnd(message.includes("неактивност") ? "idle" : "manual", token);
   saveToken(null);
-  setSnapshot(EMPTY_RUNTIME);
+  // Checkpoint the open editor before clearing the patient used to detect edits.
   onUnauthorized?.(message);
+  setSnapshot(EMPTY_RUNTIME);
   return true;
 }
 

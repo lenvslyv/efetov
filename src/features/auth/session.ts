@@ -13,6 +13,15 @@ function selectedId(): string | null {
   return last;
 }
 export function sessionKey(): string { return PREFIX + (selectedId() ?? ""); }
+export function markSessionEnd(reason: "manual" | "idle", token = loadToken()) {
+  localStorage.setItem(sessionKey() + ":ended", JSON.stringify({ reason, token }));
+}
+export function sessionEndReason(token: string | null): "manual" | "idle" {
+  try {
+    const end = JSON.parse(localStorage.getItem(sessionKey() + ":ended") || "null");
+    return end?.token === token && end.reason === "idle" ? "idle" : "manual";
+  } catch { return "manual"; }
+}
 export function browserSession(): BrowserSession | null {
   try { return JSON.parse(localStorage.getItem(sessionKey()) || "null"); }
   catch { return null; }
@@ -23,6 +32,7 @@ export function loadToken(): string | null { return browserSession()?.token ?? n
 export function saveAuthenticated(user: SessionUser, token: string) {
   sessionStorage.setItem(SELECTED, user.id);
   localStorage.setItem(LAST, user.id);
+  localStorage.removeItem(sessionKey() + ":ended");
   localStorage.setItem(sessionKey(), JSON.stringify({ user, token, activity: Date.now() }));
   localStorage.removeItem("efetovSessionUser");
   localStorage.removeItem("efetovToken");

@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import or_, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .brazhnikov import build_final_workbook
@@ -672,10 +673,21 @@ def create_patient(
     db: Session = Depends(get_db),
 ):
     require_permission(db, actor, "patient.create")
-    ids = [item.id for item in db.query(Patient).all()]
+    # Serialize ID/code allocation with the insert, including across workers.
+    # SQLite's legacy transaction mode does not BEGIN for the auth SELECTs.
+    db.execute(text("BEGIN IMMEDIATE"))
+    existing = db.query(Patient.id, Patient.code).all()
+    ids = [item.id for item in existing]
+    codes = {item.code for item in existing}
     patient_id = next_patient_id(ids)
     prefix = center_code(body.center)
     code = body.code.strip() or next_code(patient_id, prefix)
+    if body.code.strip() and code in codes:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Карточка с таким шифром уже существует. Укажите другой шифр.")
+    while not body.code.strip() and code in codes:
+        patient_id = str(int(patient_id) + 1)
+        code = next_code(patient_id, prefix)
     operation_date = body.operationDate.strip() or "—"
     blocks = empty_blocks()
     for section_id, _title in SECTIONS:
@@ -697,7 +709,11 @@ def create_patient(
     )
     db.add(patient)
     add_audit(db, actor, "Создание карты пациента", f"Создана карточка ID {patient_id}, шифр {code}")
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Не удалось создать карточку с этим ID или шифром. Обновите страницу и повторите сохранение.") from exc
     db.refresh(patient)
     return patient_to_dict(patient, users_map(db))
 

@@ -195,6 +195,29 @@ class ApiRegression(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["patients"], expected)
 
+    def test_duplicate_patient_code_returns_conflict_and_leaves_data_unchanged(self):
+        leader = self.headers(self.login())
+        body = {"center": "duplicate-code", "code": "PMI-DUPLICATE-CODE"}
+        first = self.client.post("/api/patients", headers=leader, json=body)
+        self.assertEqual(first.status_code, 200, first.text)
+        before = self.client.get("/api/runtime", headers=leader).json()["patients"]
+        duplicate = self.client.post("/api/patients", headers=leader, json=body)
+        self.assertEqual(duplicate.status_code, 409, duplicate.text)
+        self.assertIn("шифром уже существует", duplicate.json()["detail"])
+        self.assertEqual(self.client.get("/api/runtime", headers=leader).json()["patients"], before)
+
+    def test_concurrent_patient_creation_allocates_unique_ids_and_codes(self):
+        from concurrent.futures import ThreadPoolExecutor
+        leader = self.headers(self.login())
+        def create(_index):
+            return self.client.post("/api/patients", headers=leader, json={"center": "parallel-create"})
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            responses = list(pool.map(create, range(8)))
+        self.assertTrue(all(r.status_code == 200 for r in responses), [r.text for r in responses])
+        cards = [r.json() for r in responses]
+        self.assertEqual(len({p['id'] for p in cards}), 8)
+        self.assertEqual(len({p['code'] for p in cards}), 8)
+
     def test_excel_optimized_export_matches_original_lookup_for_modern_and_legacy(self):
         import io
         import json

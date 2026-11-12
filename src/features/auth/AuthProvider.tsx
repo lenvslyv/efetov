@@ -5,18 +5,19 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { api } from "@/api/mock";
 import { clearRuntime, setUnauthorizedHandler } from "@/api/http";
 import { useLocation } from "react-router-dom";
-import { writeRecovery } from "./recovery";
+import { checkpointIdle, clearDrafts, clearIdleRecovery } from "./recovery";
 import { IDLE_TIMEOUT_MS } from "@/shared/config/brand";
 import { powers } from "@/entities/user/roles";
 import { ROLE_LABELS, type SessionUser } from "@/entities/user/types";
-import { hasUnsavedChanges } from "@/features/patient/unsaved";
+import { hasUnsavedChanges, setUnsavedChanges } from "@/features/patient/unsaved";
 import { useToast } from "@/shared/ui/toast";
-import { browserSession, loadSession, loadToken, saveSession, saveToken, sessionKey } from "./session";
+import { browserSession, loadSession, loadToken, markSessionEnd, saveSession, saveToken, sessionEndReason, sessionKey } from "./session";
 
 interface AuthContextValue {
   user: SessionUser | null;
@@ -36,6 +37,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(() => {
     const session = browserSession();
     if (!session || Date.now() - session.activity >= IDLE_TIMEOUT_MS) {
+      if (session) {
+        checkpointIdle(session.user.id, location.pathname + location.search + location.hash, hasUnsavedChanges());
+        markSessionEnd("idle", session.token);
+      }
       saveToken(null);
       return null;
     }
@@ -43,6 +48,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
   const [loginError, setLoginError] = useState("");
   const { showToast } = useToast();
+  const path = useRef(location.pathname + location.search + location.hash);
+  path.current = location.pathname + location.search + location.hash;
+  const prepareExit = useCallback((reason: "manual" | "idle") => {
+    if (user) {
+      if (reason === "idle") {
+        if (!checkpointIdle(user.id, path.current, hasUnsavedChanges())) showToast("Не удалось сохранить данные для восстановления. Хранилище браузера недоступно.");
+      } else clearIdleRecovery(user.id);
+      clearDrafts(user.id);
+    }
+    setUnsavedChanges(false);
+  }, [user?.id, showToast]);
 
   const setCurrentUser = useCallback((next: SessionUser | null) => {
     setUser(next);
@@ -51,17 +67,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (user && location.pathname !== "/login") {
-      writeRecovery(user.id, "path", location.pathname + location.search + location.hash);
-    }
-  }, [user?.id, location.pathname, location.search, location.hash]);
-
-  useEffect(() => {
     let knownToken = loadToken();
     const sync = (event: StorageEvent) => {
       if (event.key !== sessionKey() && event.key !== null) return;
       const token = loadToken();
       if (token === knownToken) return;
+      if (!token) prepareExit(sessionEndReason(knownToken));
       knownToken = token;
       clearRuntime();
       setUser(token ? loadSession() : null);
@@ -69,11 +80,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);
-  }, [user]);
+  }, [user, prepareExit]);
 
   useEffect(() => {
     setUnauthorizedHandler((message) => {
       const dirty = hasUnsavedChanges();
+      prepareExit(message.includes("неактивност") ? "idle" : "manual");
       setCurrentUser(null);
       setLoginError("");
       if (message === "Нужна авторизация") return;
@@ -86,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       showToast(message);
     });
     return () => setUnauthorizedHandler(null);
-  }, [setCurrentUser, showToast]);
+  }, [setCurrentUser, showToast, prepareExit]);
 
   useEffect(() => {
     if (user && loadToken()) {
@@ -144,6 +156,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(
     (reason: "manual" | "idle" = "manual") => {
+      markSessionEnd(reason);
+      prepareExit(reason);
       if (user) void api.endSession(user, reason).catch(() => undefined);
       else {
         saveToken(null);
@@ -151,7 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCurrentUser(null);
       setLoginError("");
     },
-    [setCurrentUser, user]
+    [setCurrentUser, user, prepareExit]
   );
 
   const value = useMemo<AuthContextValue>(

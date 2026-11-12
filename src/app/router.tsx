@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { createRoutesFromElements, Navigate, Route } from "react-router-dom";
 import { AppShell } from "@/app/layout/AppShell";
 import { GuestOnly, RequireAuth, RequirePermission } from "@/features/auth/guards";
 import { AdminPage } from "@/pages/AdminPage";
@@ -9,9 +9,9 @@ import { LoginPage } from "@/pages/LoginPage";
 import { PatientCardPage } from "@/pages/PatientCardPage";
 import { PatientNewPage } from "@/pages/PatientNewPage";
 
-export function AppRouter() {
-  return (
-    <Routes>
+export function appRoutes() {
+  return createRoutesFromElements(
+    <>
       <Route element={<GuestOnly />}>
         <Route path="/login" element={<LoginPage />} />
       </Route>
@@ -33,6 +33,6 @@ export function AppRouter() {
       </Route>
       <Route path="/" element={<Navigate to="/journal" replace />} />
       <Route path="*" element={<Navigate to="/journal" replace />} />
-    </Routes>
+    </>
   );
 }

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { passwordError } from "../src/features/admin/password.ts";
 import { selectAccounts, EMPTY_ACCOUNT_FILTERS } from "../src/features/admin/filter.ts";
 import { saveAuthenticated, loadSession, loadToken, saveSession, recordActivity, browserSession } from "../src/features/auth/session.ts";
-import { readRecovery, writeRecovery, restoredPath, clearRecovery } from "../src/features/auth/recovery.ts";
+import { readRecovery, writeRecovery, restoredPath, clearRecovery, readDraft, writeDraft, clearDrafts, checkpointIdle, idleRecovery, resolveIdleRecovery, clearIdleRecovery } from "../src/features/auth/recovery.ts";
 
 class StorageMock {
   data = new Map<string, string>();
@@ -64,20 +64,47 @@ test("activity in one account never extends another account", () => {
   tab(tabA); assert.equal(browserSession()!.activity, 1);
 });
 
-test("drafts and routes survive logout but stay isolated by account and tab", () => {
-  tabA.clear(); tabB.clear(); tab(tabA);
-  writeRecovery("A", "patient:42", { note: "черновик" });
-  writeRecovery("A", "path", "/patients/42");
-  saveSession(null);
-  assert.deepEqual(readRecovery("A", "patient:42"), { note: "черновик" });
-  assert.equal(restoredPath("A"), "/patients/42");
-  assert.equal(readRecovery("B", "patient:42"), null);
-  assert.equal(restoredPath("B"), "/journal");
-  tab(tabB); assert.equal(readRecovery("A", "patient:42"), null);
-  tab(tabA); clearRecovery("A", "patient:42");
-  assert.equal(readRecovery("A", "patient:42"), null);
-  writeRecovery("A", "path", "//evil.example");
+test("drafts live only in memory until an idle checkpoint is made", () => {
+  tabA.clear(); tabB.clear(); tab(tabA); clearDrafts("A");
+  writeDraft("A", "new:values", { note: "unsaved" });
+  assert.deepEqual(readDraft("A", "new:values"), { note: "unsaved" });
+  assert.equal(idleRecovery("A"), null);
   assert.equal(restoredPath("A"), "/journal");
+  clearDrafts("A", "new:");
+  assert.equal(readDraft("A", "new:values"), null);
+});
+
+test("idle snapshots require a decision and stay isolated by account and tab", () => {
+  tabA.clear(); tabB.clear(); tab(tabA); clearDrafts("A");
+  writeDraft("A", "patient:42:draft", { 1: { note: "idle draft" } });
+  assert.equal(checkpointIdle("A", "/patients/42", true), true);
+  clearDrafts("A");
+  assert.equal(readDraft("A", "patient:42:draft"), null);
+  assert.equal(restoredPath("A"), "/patients/42");
+  assert.equal(idleRecovery("B"), null);
+  tab(tabB); assert.equal(idleRecovery("A"), null);
+  tab(tabA);
+  assert.equal(resolveIdleRecovery("A", true), "/patients/42");
+  assert.deepEqual(readDraft("A", "patient:42:draft"), { 1: { note: "idle draft" } });
+  assert.equal(idleRecovery("A"), null);
+  checkpointIdle("A", "/patients/42", true); clearDrafts("A");
+  resolveIdleRecovery("A", false);
+  assert.equal(readDraft("A", "patient:42:draft"), null);
+});
+
+test("manual exit clears recovery and unsafe idle paths are rejected", () => {
+  tab(tabA); clearDrafts("A");
+  writeDraft("A", "new:values", { note: "test" });
+  checkpointIdle("A", "//evil.example", true);
+  assert.equal(restoredPath("A"), "/journal");
+  clearIdleRecovery("A"); clearDrafts("A");
+  assert.equal(idleRecovery("A"), null);
+  assert.equal(restoredPath("A"), "/journal");
+  // The old unqualified recovery format cannot cause an ordinary restore.
+  writeRecovery("A", "path", "/patients/new");
+  assert.equal(restoredPath("A"), "/journal");
+  clearRecovery("A", "path");
+  assert.equal(readRecovery("A", "path"), null);
 });
 
 test("combined filters use all assigned roles; sorting does not mutate source", () => {

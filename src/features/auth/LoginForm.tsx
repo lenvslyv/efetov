@@ -1,10 +1,9 @@
 import { FormEvent, useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { api } from "@/api/mock";
 import type { DemoUser } from "@/entities/user/types";
 import { ROLE_LABELS } from "@/entities/user/types";
 import { Button, Card, Label, TextInput } from "@/shared/ui";
-import { returnPathFromState } from "./redirect";
 import { restoredPath } from "./recovery";
 import { loadSession } from "./session";
 import { useAuth } from "./useAuth";
@@ -64,9 +63,7 @@ export function LoginForm() {
 export function QuickRoleCards() {
   const { quickLogin } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   const [users, setUsers] = useState<DemoUser[]>([]);
-  const nextPath = returnPathFromState(location.state);
 
   useEffect(() => {
     void api.listDemoUsers().then(setUsers).catch(() => setUsers([]));
@@ -88,7 +85,7 @@ export function QuickRoleCards() {
               type="button"
               onClick={async () => {
                 if (await quickLogin(item.login, item.password)) {
-                  navigate(nextPath, { replace: true });
+                  navigate(restoredPath(loadSession()!.id), { replace: true });
                 }
               }}
             >

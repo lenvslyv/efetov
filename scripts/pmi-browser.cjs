@@ -5,8 +5,8 @@ const { execFileSync } = require('node:child_process');
 const { performance } = require('node:perf_hooks');
 const { chromium } = require('C:/Users/Admin/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const ROOT = path.resolve(__dirname, '..');
-const OUT = path.join(ROOT, '.cache/pmi-20261112');
-const BASE = 'http://127.0.0.1:8001';
+const OUT = process.env.PMI_OUTPUT_DIR || path.join(ROOT, '.cache/pmi-20261112');
+const BASE = process.env.PMI_BASE_URL || 'http://127.0.0.1:8001';
 const fixture = JSON.parse(fs.readFileSync(path.join(OUT, 'fixture.json'), 'utf8'));
 const results = [];
 const errors = [];
@@ -16,6 +16,7 @@ function record(pmi, status, evidence) {
   console.log(`${pmi}: ${status}`);
 }
 async function check(pmi, action) {
+  if (process.env.PMI_ONLY_LAYOUT && pmi !== '4.7.1') return;
   try { const result = await action(); const status = result.status || 'PASS'; delete result.status; record(pmi, status, result); }
   catch (error) { record(pmi, 'FAIL', { error: error.message, stack: error.stack }); }
 }
@@ -96,7 +97,11 @@ function countRows(file) {
       await page.setViewportSize(viewport);
       for (const route of ['/journal', '/admin', '/audit', '/files', `/patients/${fixture.target}`, '/patients/new']) {
         await page.goto(BASE + route);
-        if (route.includes('/patients/')) await page.locator('.clinical-field').first().waitFor();
+        console.log('LAYOUT',viewport.width,route);
+        if (route.includes('/patients/')) {
+          try { await page.locator('.clinical-field').first().waitFor(); }
+          catch(error){throw Error(`${route} ${viewport.width}: ${error.message}; BODY: ${(await page.locator('body').innerText()).slice(0,1300)}`);}
+        }
         const measurements = await page.evaluate(() => {
           const controls = [...document.querySelectorAll('.clinical-field')].map(field => {
             const label = field.querySelector('label').getBoundingClientRect();
