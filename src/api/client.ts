@@ -71,7 +71,7 @@ export interface AppApi {
   ): Promise<AccountRecord>;
   createAccount(
     actor: SessionUser,
-    input: AccountProfileInput & AccountPasswordInput
+    input: AccountProfileInput & AccountPasswordInput & { roles: AssignableRole[]; role?: AssignableRole }
   ): Promise<AccountRecord>;
   updateAccount(
     actor: SessionUser,

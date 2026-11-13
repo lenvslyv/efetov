@@ -7,9 +7,9 @@ export function CrfFields({ fields, values, editable, onChange }: {
 }) {
   const groups = groupFields(fields);
   return <div className="clinical-groups space-y-6">
-    {groups.map((group, index) => <section key={group.title} className={index ? "border-t border-border pt-6" : ""}>
-      {groups.length > 1 && <h3 className="mb-3 text-sm font-semibold text-slate-700">{group.title}</h3>}
-      <div className="space-y-4">
+    {groups.map(group => <section key={group.title} className="clinical-group overflow-hidden rounded-lg border border-border bg-background">
+      <h3 className="border-b border-l-[3px] border-l-primary bg-muted/40 px-4 py-3 text-sm font-semibold text-foreground">{group.title}</h3>
+      <div className="space-y-4 p-4">
         {(["short", "medium", "long"] as FieldLayout[]).map(layout => {
           const selected = group.fields.filter(field => fieldLayout(field.key, field.name) === layout);
           if (!selected.length) return null;

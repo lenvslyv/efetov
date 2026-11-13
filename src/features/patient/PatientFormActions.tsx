@@ -4,7 +4,7 @@ export function PatientFormActions({ dirty, creating = false, pending = false, c
   dirty: boolean; creating?: boolean; pending?: boolean; canSave?: boolean; onSave?: () => void; onBack: () => void;
 }) {
   const status = pending ? "Сохранение…" : dirty ? "Есть несохранённые изменения" : creating ? "Новая карточка" : "Сохранено";
-  return <div className="patient-form-actions fixed inset-x-0 bottom-0 z-30 border-t bg-white/95 shadow-[0_-4px_20px_-12px_rgba(15,23,42,0.3)] backdrop-blur xl:left-64">
+  return <div className="patient-form-actions fixed inset-x-0 bottom-0 z-30 border-t bg-white/95 shadow-[0_-4px_20px_-12px_rgba(15,23,42,0.3)] backdrop-blur">
     <div className="mx-auto flex max-w-[1760px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 2xl:px-8">
       <p role="status" aria-live="polite" className="flex items-center gap-2 text-xs text-muted-foreground sm:text-sm">
         <span className={`size-2 shrink-0 rounded-full ${dirty ? "bg-amber-500" : creating ? "bg-slate-400" : "bg-emerald-500"}`} />{status}

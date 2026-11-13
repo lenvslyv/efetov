@@ -81,3 +81,76 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* Compact desktop controls retain comfortable touch targets. */
+@media (pointer: coarse) {
+  .touch-target { min-height: 44px; min-width: 44px; }
+}
+@media (min-width: 768px) {
+  .audit-filter-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .audit-action { grid-column: 4; grid-row: 1; }
+  .audit-role { grid-column: 1 / span 2; }
+  .audit-details { grid-column: 3 / span 2; }
+  .journal-filter-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (min-width: 1536px) {
+  .journal-filter-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+}
+.journal-table th:first-child, .journal-table td:first-child {
+  position: sticky; left: 0; min-width: 88px; width: 88px; max-width: 88px; z-index: 20; background: white;
+}
+.journal-table th:nth-child(2), .journal-table td:nth-child(2) {
+  position: sticky; left: 88px; min-width: 152px; max-width: 240px; z-index: 20; background: white;
+  border-right: 1px solid hsl(var(--border)); overflow-wrap: anywhere;
+}
+.journal-table th:first-child, .journal-table th:nth-child(2) { background: #f8fafc; }
+.journal-table tr:hover td:first-child, .journal-table tr:hover td:nth-child(2) { background: #f8fafc; }
+
+.patient-context { top: calc(var(--app-header-height, 64px) + 8px); }
+.clinical-control { scroll-margin-top: calc(var(--app-header-height, 64px) + var(--patient-context-height, 136px) + 24px); }
+.folder-tree ul { margin-left: 14px; padding-left: 14px; border-left: 1px solid hsl(var(--input)); }
+.folder-tree li { position: relative; min-width: 0; }
+.folder-tree ul > li::before { content: ""; position: absolute; top: 19px; left: -14px; width: 14px; border-top: 1px solid hsl(var(--input)); }
+.folder-tree ul > li:last-child::after { content: ""; position: absolute; top: 20px; bottom: 0; left: -15px; width: 1px; background: hsl(var(--muted)); }
+
+.folder-name { white-space: normal; word-break: normal; overflow-wrap: normal; hyphens: none; overflow-x: auto; }
+.app-select { cursor: pointer; color-scheme: light; }
+.app-select option { color: hsl(var(--foreground)); background: hsl(var(--background)); }
+
+.login-surface {
+  position: relative; isolation: isolate;
+  background: radial-gradient(ellipse at 12% 18%, rgb(147 197 253 / .24), transparent 48%), radial-gradient(ellipse at 88% 82%, rgb(196 181 253 / .2), transparent 46%), #f8fafc;
+}
+.login-surface::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: .22;
+  background-image: radial-gradient(rgb(71 85 105 / .24) .55px, transparent .6px); background-size: 4px 4px;
+}
+.workspace-files { display: flex; flex-direction: column; height: calc(100dvh - var(--app-header-height, 64px)); min-height: 480px; }
+.workspace-files > :not(.files-explorer) { flex-shrink: 0; }
+.files-folders { max-height: none; overscroll-behavior: contain; }
+.files-content { overscroll-behavior: contain; }
+@media (max-width: 1023px) {
+  .files-folders { position: absolute; top: 62px; bottom: 0; left: 0; width: min(320px, 100%); z-index: 30; border-right: 1px solid hsl(var(--border)); box-shadow: 8px 0 20px rgb(15 23 42 / .08); }
+}
+@media (min-width: 1280px) {
+  main .patient-form-actions { left: var(--app-sidebar-width, 256px); }
+}
+/* Native selection, keyboard behavior and form values are retained. */
+@supports (appearance: base-select) {
+  .app-select, .app-select::picker(select) { appearance: base-select; }
+  .app-select { display: flex; align-items: center; gap: .5rem; white-space: nowrap; }
+  .app-select::picker-icon { content: ""; width: .45rem; height: .45rem; flex-shrink: 0; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; color: hsl(var(--muted-foreground)); margin-left: auto; margin-top: -.2rem; rotate: 45deg; transition: rotate 120ms ease; }
+  .app-select:open::picker-icon { rotate: 225deg; margin-top: .2rem; }
+  .app-select::picker(select) {
+    border: 1px solid hsl(var(--border)); border-radius: .625rem; padding: .25rem;
+    background: hsl(var(--background)); color: hsl(var(--foreground));
+    box-shadow: 0 8px 24px rgb(15 23 42 / .14); margin-block: .25rem;
+    max-height: min(320px, 60dvh); max-width: calc(100vw - 24px); overflow: auto;
+  }
+  .app-select option { display: flex; align-items: center; gap: .75rem; min-height: 36px; padding: .5rem .75rem; border-radius: .375rem; font-size: .875rem; white-space: normal; cursor: pointer; }
+  .app-select option:hover, .app-select option:focus { background: hsl(var(--accent)); outline: none; }
+  .app-select option:checked { background: hsl(var(--primary) / .09); color: hsl(var(--primary)); font-weight: 500; }
+  .app-select option::checkmark { order: 1; margin-left: auto; color: hsl(var(--primary)); }
+  .app-select option:disabled { opacity: .5; cursor: not-allowed; }
+  @media (pointer: coarse) { .app-select option { min-height: 44px; } }
+}

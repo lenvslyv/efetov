@@ -5,6 +5,7 @@ import { useEditor } from "./useEditor";
 import { CrfTabs } from "./CrfTabs";
 import { CrfFields } from "./CrfFields";
 import { PatientFormActions } from "./PatientFormActions";
+import { PatientContext } from "./PatientContext";
 import { api } from "@/api/mock";
 import { useRuntime } from "@/api/useRuntime";
 import { fieldsOfSection } from "@/entities/crf/schema";
@@ -88,6 +89,7 @@ export function CreatePatientForm({
   return (
     <>
       <form onSubmit={onSubmit} className="space-y-5 pb-32">
+        <PatientContext id={nextId} code={displayedCode} center={center} section={sectionLabel(activeSection)} editable dirty={dirty} pending={pending} creating />
         <Card className="p-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-base font-semibold">Данные карточки</h2>
