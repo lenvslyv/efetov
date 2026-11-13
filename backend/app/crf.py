@@ -45,31 +45,6 @@ def match_stored(stored: list[dict], field: dict) -> dict | None:
     return None
 
 
-def compute_bmi(height_cm: str, weight_kg: str) -> str:
-    try:
-        height = float(str(height_cm).replace(",", "."))
-        weight = float(str(weight_kg).replace(",", "."))
-    except ValueError:
-        return ""
-    if height <= 0 or weight <= 0:
-        return ""
-    meters = height / 100
-    return f"{weight / (meters * meters):.2f}"
-
-
-def with_computed(fields: list[dict]) -> list[dict]:
-    height = match_stored(fields, next(f for f in CRF_SCHEMA if f["key"] == "height"))
-    weight = match_stored(fields, next(f for f in CRF_SCHEMA if f["key"] == "weight"))
-    bmi = compute_bmi((height or {}).get("value", ""), (weight or {}).get("value", ""))
-    result = []
-    for field in fields:
-        if field.get("key") == "bmi":
-            result.append({**field, "value": bmi or field.get("value", "")})
-        else:
-            result.append(field)
-    return result
-
-
 def _iter_stored(blocks: dict) -> list[dict]:
     stored: list[dict] = []
     for fields in blocks.values():
@@ -93,17 +68,6 @@ def _incoming_value(field: dict, values: dict[str, str]) -> str | None:
         if alias in values:
             return values[alias]
     return None
-
-
-def _write_bmi(blocks: dict) -> None:
-    height = find_stored(blocks, next(field for field in CRF_SCHEMA if field["key"] == "height"))
-    weight = find_stored(blocks, next(field for field in CRF_SCHEMA if field["key"] == "weight"))
-    bmi = find_stored(blocks, next(field for field in CRF_SCHEMA if field["key"] == "bmi"))
-    if bmi is None:
-        return
-    computed = compute_bmi((height or {}).get("value", ""), (weight or {}).get("value", ""))
-    if computed:
-        bmi["value"] = computed
 
 
 def operation_date_from(blocks: dict) -> str:
@@ -134,7 +98,6 @@ def apply_section_values(blocks: dict, section_id: int, values: dict[str, str]) 
         else:
             target["key"] = field["key"]
             target["value"] = value
-    _write_bmi(blocks)
     return blocks
 
 

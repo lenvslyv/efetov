@@ -8,10 +8,49 @@ import { AuditFiltersBar } from "../src/features/audit/AuditFilters";
 import { EMPTY_AUDIT_FILTERS } from "../src/entities/audit/types";
 import { JournalFilters } from "../src/features/journal/JournalFilters";
 import { EMPTY_JOURNAL_FILTERS } from "../src/entities/patient/types";
+import { CrfBlockForm } from "../src/features/patient/CrfBlockForm";
+import { mergeSection, resolveFieldValue } from "../src/entities/crf/merge";
+import { fieldPresentation } from "../src/entities/crf/presentation";
+import { CRF_SCHEMA } from "../src/entities/crf/schema";
+import { CRF_FIELD_GROUPS, groupFields } from "../src/entities/crf/layout";
+import { CrfFields } from "../src/features/patient/CrfFields";
 
 let count = 0;
+function checkFieldHelp() {
+  const age = "Пожилой возраст (60-74) да - 1";
+  assert.equal(fieldPresentation(age).label, age);
+  assert.equal(fieldPresentation("Гемоглобин (г/л)").label, "Гемоглобин (г/л)");
+  const sex = fieldPresentation("Пол (М - 1, Ж -0)", undefined, "sex");
+  assert.equal(sex.label, "Пол");
+  assert.equal(sex.help, "Пол (М - 1, Ж -0)");
+}
 function check(name: string, run: () => void) { run(); count++; console.log(`PASS ${name}`); }
+check("Short labels preserve units and age ranges; coding stays in help", checkFieldHelp);
+check("Clinical groups cover every schema field exactly once and preserve values", () => {
+  const defined = Object.values(CRF_FIELD_GROUPS).flatMap(groups => groups.flatMap(group => group.keys));
+  assert.equal(new Set(defined).size, defined.length);
+  assert.deepEqual([...defined].sort(), CRF_SCHEMA.map(field => field.key).sort());
+  for (let section = 1; section <= 15; section++) {
+    const fields = CRF_SCHEMA.filter(field => field.section === section).map(field => ({ key: field.key, name: field.label, value: `saved-${field.key}` }));
+    const grouped = groupFields(fields).flatMap(group => group.fields);
+    assert.equal(grouped.length, fields.length);
+    const html = renderToStaticMarkup(<CrfFields fields={fields} values={{}} editable onChange={() => {}} />);
+    assert.equal((html.match(/<(?:input|textarea)\b/g) || []).length, fields.length);
+    fields.forEach(field => assert.ok(html.includes(field.value), field.key));
+  }
+});
 const field = (value: string, editable = true, name = "ФИО") => renderToStaticMarkup(<FieldControl name={name} value={value} editable={editable} onChange={() => {}} />);
+
+check("Manual BMI remains editable and legacy computed hints are hidden", () => {
+  const blocks = { legacy: [
+    { name: "Рост", value: "180" }, { name: "Вес", value: "81" },
+    { name: "ИМТ (вычисляемый параметр)", value: "31,27", hint: "вычисляемый параметр" },
+  ] };
+  assert.equal(resolveFieldValue(blocks, "bmi"), "31,27");
+  const html = renderToStaticMarkup(<CrfBlockForm block="Раздел 2" fields={mergeSection(2, blocks)} values={{}} editable canSave onChange={() => {}} onSave={() => {}} onBack={() => {}} />);
+  assert.ok(html.includes('value="31,27"'));
+  assert.ok(!/readOnly|readonly|вычисляемый параметр/i.test(html));
+});
 
 check("Long values do not change input type or grid span", () => {
   const short = field("Тест");
@@ -20,10 +59,11 @@ check("Long values do not change input type or grid span", () => {
   assert.ok(!short.includes("clinical-field-wide") && !long.includes("clinical-field-wide"));
   assert.ok(!long.includes("<textarea"));
 });
-check("Multiline and long-label layouts depend only on the field definition", () => {
+check("Long text gets a separate block while values never change the layout", () => {
   assert.ok(field("", true, "Комментарий").includes("<textarea"));
-  assert.ok(field("Текст", true, "Комментарий").includes("clinical-field-wide"));
-  assert.ok(field("1", true, "Длинная подпись ".repeat(15)).includes("clinical-field-wide"));
+  assert.ok(field("", true, "Комментарий").includes("clinical-field-long"));
+  assert.ok(!field("Текст", true, "Комментарий").includes("clinical-field-wide"));
+  assert.ok(!field("1", true, "Длинная подпись ".repeat(15)).includes("clinical-field-wide"));
 });
 check("Read-only fields preserve controls and allow selecting/copying values", () => {
   const html = field("Сохранённое значение", false);

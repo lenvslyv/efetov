@@ -1,5 +1,4 @@
 import type { Field } from "@/entities/patient/types";
-import { computeBmi } from "./computed";
 import {
   fieldByKey,
   fieldNames,
@@ -61,31 +60,9 @@ export function getFieldValueByKey(
   return found?.value ?? "";
 }
 
-export function withComputed(fields: Field[]): Field[] {
-  const height = fieldByKey("height");
-  const weight = fieldByKey("weight");
-  if (!height || !weight) return fields;
-  const bmi = computeBmi(
-    matchStoredField(fields, height)?.value ?? "",
-    matchStoredField(fields, weight)?.value ?? ""
-  );
-  return fields.map((field) =>
-    field.key === "bmi" ? { ...field, value: bmi || field.value } : field
-  );
-}
-
 export function resolveFieldValue(
   blocks: Record<string, Field[]>,
   key: string
 ): string {
-  const stored = getFieldValueByKey(blocks, key);
-  if (key === "bmi") {
-    return (
-      computeBmi(
-        getFieldValueByKey(blocks, "height"),
-        getFieldValueByKey(blocks, "weight")
-      ) || stored
-    );
-  }
-  return stored;
+  return getFieldValueByKey(blocks, key);
 }

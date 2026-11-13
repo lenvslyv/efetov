@@ -11,7 +11,6 @@ export interface CrfFieldSchema {
   hint?: string;
   excelHeaders: string[];
   aliases?: string[];
-  computedFrom?: string[];
 }
 
 export const CRF_SCHEMA = catalog.fields as CrfFieldSchema[];

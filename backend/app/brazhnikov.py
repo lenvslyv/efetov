@@ -6,7 +6,7 @@ from collections import defaultdict
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from .crf import CRF_SCHEMA, compute_bmi, find_stored
+from .crf import CRF_SCHEMA, find_stored
 from .models import Patient
 
 TEMPLATE_PATH = Path(__file__).resolve().parents[2] / "Шаблон выгрузки Бражников.xlsx"
@@ -96,14 +96,6 @@ def _cell(column: str, row: int, value: str) -> str:
 def _field_value(patient: Patient, blocks: dict, field: dict) -> str:
     stored = find_stored(blocks, field)
     value = str((stored or {}).get("value") or "")
-    if field["key"] == "bmi":
-        height = find_stored(blocks, next(item for item in CRF_SCHEMA if item["key"] == "height"))
-        weight = find_stored(blocks, next(item for item in CRF_SCHEMA if item["key"] == "weight"))
-        computed = compute_bmi(
-            str((height or {}).get("value") or ""),
-            str((weight or {}).get("value") or ""),
-        )
-        return computed or value
     if field["key"] == "opDate" and not value:
         journal = str(patient.operation_date or "").strip()
         if journal and journal != "—":
@@ -125,8 +117,6 @@ def _patient_cells(patient: Patient, columns: list[tuple[str, str]], fields: lis
         if legacy:
             return _field_value(patient, blocks, field)
         value = str(indexed.get(field["key"], {}).get("value") or "")
-        if field["key"] == "bmi":
-            return compute_bmi(str(indexed.get("height", {}).get("value") or ""), str(indexed.get("weight", {}).get("value") or "")) or value
         if field["key"] == "opDate" and not value:
             return patient.operation_date if patient.operation_date and patient.operation_date != "-" else ""
         return value

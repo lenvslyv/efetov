@@ -17,19 +17,21 @@ const checks=[];function assert(value,message){if(!value)throw Error(message);}
    let fieldCount=0;
    for(let section=1;section<=10;section++){
    await page.getByLabel('Разделы карточки пациента',{exact:true}).getByRole('button').nth(section-1).click();
-   const geometry=await page.locator('.clinical-grid').evaluateAll(grids=>({
+   const geometry=await page.locator('.clinical-grid, .clinical-narratives').evaluateAll(grids=>({
     overflow:document.documentElement.scrollWidth>innerWidth+1,
     fields:grids.flatMap(grid=>[...grid.querySelectorAll('.clinical-field')].map(field=>{
-     const c=field.querySelector('.clinical-control').getBoundingClientRect(),l=field.querySelector('.clinical-label').getBoundingClientRect();
-     return {label:field.querySelector('label').textContent,width:c.width,gap:c.top-l.bottom,compact:field.classList.contains('clinical-field-compact'),left:c.left,right:c.right};
+     const c=field.querySelector('.clinical-control').getBoundingClientRect(),l=field.querySelector('.clinical-label-row').getBoundingClientRect();
+     const expected=field.classList.contains('clinical-field-long')?grid.getBoundingClientRect().width:Math.min(grid.classList.contains('clinical-grid-medium')?520:260,grid.getBoundingClientRect().width);
+     return {label:field.querySelector('label').textContent,width:c.width,expected,gap:c.top-l.bottom,left:c.left,right:c.right};
     }))
    }));
    assert(!geometry.overflow,'Page overflow '+width);
    assert(geometry.fields.every(f=>f.left>=0&&f.right<=width+1),'Control outside viewport '+width);
    assert(geometry.fields.every(f=>f.gap>=-1&&f.gap<=5),'Label too far from control '+width+' '+JSON.stringify(geometry.fields.filter(f=>f.gap< -1||f.gap>5)));
-   assert(geometry.fields.filter(f=>f.compact).every(f=>f.width<=193),'Compact control too wide '+width);
-   if(width>=768&&section===2){
-    const rows=await Promise.all(['Рост','Вес','ИМТ (вычисляемый параметр)','Ожирение (степень)'].map(name=>page.getByLabel(name,{exact:true}).boundingBox()));
+   assert(geometry.fields.every(f=>Math.abs(f.width-f.expected)<1),'Field widths differ '+width);
+   assert(await page.locator('.clinical-grid textarea, .clinical-narratives input').count()===0,'Long and short controls mixed');
+   if(width>=1536&&section===2){
+    const rows=await Promise.all(['Рост','Вес','ИМТ','Ожирение (степень)'].map(name=>page.getByLabel(name,{exact:true}).boundingBox()));
     assert(rows.every(r=>Math.abs(r.y-rows[0].y)<2),'Section 2 not on one line at '+width);
    }
    fieldCount+=geometry.fields.length;

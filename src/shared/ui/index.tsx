@@ -6,7 +6,9 @@ import { Label } from "./components/label";
 import { Input as TextInput } from "./components/input";
 import { Textarea as TextArea } from "./components/textarea";
 import { Card } from "./components/card";
-import { fieldSize, visibleFieldHint } from "@/entities/crf/presentation";
+import { fieldPresentation } from "@/entities/crf/presentation";
+import { FieldHelp } from "./FieldHelp";
+import { fieldLayout } from "@/entities/crf/layout";
 
 export { Label, TextInput, TextArea, Card };
 
@@ -56,7 +58,7 @@ export function Modal({ children, onClose, title = "Диалог", dismissible =
 }
 
 export function Toast({ message }: { message: string | null }) {
-  return message ? <div role="status" aria-live="polite" className="fixed bottom-5 right-5 z-[100] max-w-[min(28rem,calc(100vw-2.5rem))] rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-sm leading-6 text-white shadow-lg">{message}</div> : null;
+  return message ? <div role="status" aria-live="polite" className="app-toast fixed bottom-5 right-5 z-[100] max-w-[min(28rem,calc(100vw-2.5rem))] rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-sm leading-6 text-white shadow-lg">{message}</div> : null;
 }
 
 // Layout must never depend on the current value: typing cannot move neighboring fields.
@@ -66,14 +68,17 @@ export function isMultilineField(name: string): boolean {
 
 export function FieldControl({ name, value, hint, fieldKey, editable, onChange }: { name: string; value: string; hint?: string; fieldKey?: string; editable: boolean; onChange: (value: string) => void }) {
   const id = useId();
-  const size = fieldSize(fieldKey);
-  const visibleHint = visibleFieldHint(hint);
-  const multiline = isMultilineField(name);
+  const presentation = fieldPresentation(name, hint, fieldKey);
+  const layout = fieldLayout(fieldKey, name);
+  const multiline = layout === "long";
   const Control = multiline ? TextArea : TextInput;
-  return <div className={cn("clinical-field", size === "compact" && "clinical-field-compact", size === "medium" && "clinical-field-medium", (multiline || name.length > 120) && "clinical-field-wide")}>
-    <Label htmlFor={id} className="clinical-label mb-0">{name}</Label>
-    <Control id={id} readOnly={!editable} value={value} aria-describedby={visibleHint ? `${id}-hint` : undefined}
+  return <div className={cn("clinical-field", layout === "long" && "clinical-field-long", layout === "medium" && "clinical-field-medium")}>
+    <div className="clinical-label-row">
+      <Label htmlFor={id} className="clinical-label mb-0">{presentation.label}</Label>
+      {presentation.help && <FieldHelp label={presentation.label} text={presentation.help} />}
+    </div>
+    <Control id={id} aria-label={name} readOnly={!editable} value={value} rows={multiline ? 5 : undefined}
       className="clinical-control" onChange={event => { if (editable) onChange(event.target.value); }} />
-    <p id={`${id}-hint`} className="clinical-hint">{visibleHint}</p>
+    <span aria-hidden="true" />
   </div>;
 }
