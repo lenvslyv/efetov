@@ -14,6 +14,11 @@ const checks=[];function assert(value,message){if(!value)throw Error(message);}
   assert(!(await page.locator('.clinical-hint').allTextContents()).some(t=>/^\s*позиция\s/i.test(t)),'Technical hints remain in creation');
   for(const width of [1920,1280,1024,768,390]) {
    await page.setViewportSize({width,height:1080});
+   const tabGeometry=await page.getByLabel('Разделы карточки пациента',{exact:true}).getByRole('button').evaluateAll(nodes=>nodes.map(node=>{const box=node.getBoundingClientRect();return {width:box.width,height:box.height,clipped:node.scrollWidth>node.clientWidth+1||node.scrollHeight>node.clientHeight+1};}));
+   assert(tabGeometry.length===15,'Missing section buttons '+width);
+   assert(tabGeometry.every(box=>Math.abs(box.width-tabGeometry[0].width)<1&&Math.abs(box.height-tabGeometry[0].height)<1&&!box.clipped),'Uneven or clipped section buttons '+width);
+   assert(!await page.getByText('При создании заполняются разделы 1–10. Разделы 11–15 доступны после сохранения карточки.',{exact:true}).count(),'Creation note still visible');
+   if([1920,1024,390].includes(width))await page.getByLabel('Разделы карточки пациента',{exact:true}).screenshot({path:path.join(OUT,'section-tabs-'+width+'.png')});
    let fieldCount=0;
    for(let section=1;section<=10;section++){
    await page.getByLabel('Разделы карточки пациента',{exact:true}).getByRole('button').nth(section-1).click();
