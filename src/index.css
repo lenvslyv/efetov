@@ -133,7 +133,7 @@
   .files-folders { position: absolute; top: 62px; bottom: 0; left: 0; width: min(320px, 100%); z-index: 30; border-right: 1px solid hsl(var(--border)); box-shadow: 8px 0 20px rgb(15 23 42 / .08); }
 }
 @media (min-width: 1280px) {
-  main .patient-form-actions { left: var(--app-sidebar-width, 256px); }
+  main .patient-form-actions { left: var(--app-sidebar-width, 304px); }
 }
 /* Native selection, keyboard behavior and form values are retained. */
 @supports (appearance: base-select) {
