@@ -18,10 +18,7 @@ export function PatientNewPage() {
 
   return (
     <>
-      <PageHeader
-        title="Создание карточки пациента"
-        description="После сохранения карточка появляется в общем журнале."
-      />
+      <h1 className="mb-4 text-2xl font-semibold tracking-tight">Создание карточки пациента</h1>
       <CreatePatientForm
         onCreated={(id) => navigate(`/patients/${id}`)}
         onCancel={() => navigate("/journal")}

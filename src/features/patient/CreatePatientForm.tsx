@@ -3,20 +3,17 @@ import { useDraft } from "./useDraft";
 import { clearDrafts, clearIdleRecovery, clearRecovery } from "@/features/auth/recovery";
 import { useEditor } from "./useEditor";
 import { CrfTabs } from "./CrfTabs";
+import { CrfFields } from "./CrfFields";
+import { PatientFormActions } from "./PatientFormActions";
 import { api } from "@/api/mock";
 import { useRuntime } from "@/api/useRuntime";
-import { applyBmiToValues } from "@/entities/crf/computed";
 import { fieldsOfSection } from "@/entities/crf/schema";
 import { sectionLabel } from "@/entities/crf/sections";
 import { CENTERS, centerCode, nextCode, nextPatientId } from "@/entities/patient/code";
 import { useAuth } from "@/features/auth/useAuth";
 import { setUnsavedChanges } from "@/features/patient/unsaved";
-import { now } from "@/shared/lib/dates";
 import {
-  Button,
   Card,
-  FieldControl,
-  Kpi,
   Label,
   Select,
   TextInput,
@@ -90,102 +87,47 @@ export function CreatePatientForm({
 
   return (
     <>
-      <div className="mb-5 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
-        <Kpi title="Новый ID" value={nextId} note="автоматически" />
-        <Kpi
-          title="Шифр пациента"
-          value={displayedCode}
-          note="задается отдельно от ID"
-          tone="green"
-        />
-        <Kpi
-          title="Автор"
-          value={user?.id || "—"}
-          note="фиксируется при сохранении"
-        />
-        <Kpi
-          title="Дата и время"
-          value={now()}
-          note="фиксируется при сохранении"
-          tone="amber"
-        />
-      </div>
-      <form onSubmit={onSubmit} className="space-y-5">
-        {dirty && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Есть несохранённые данные. При выходе по бездействию предложим восстановить их после входа в этой вкладке. Карточка появится в системе после сохранения.</p>}
-        <Card className="p-5">
-          <h2 className="text-base font-semibold text-slate-900">
-            Ключевые поля общего журнала
-          </h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
-            <div>
-              <Label>ID</Label>
-              <TextInput value={nextId} disabled />
+      <form onSubmit={onSubmit} className="space-y-5 pb-32">
+        <Card className="p-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-base font-semibold">Данные карточки</h2>
+            <p className="text-xs text-muted-foreground">Автор: {user?.name || user?.login}. Дата создания фиксируется при сохранении.</p>
+          </div>
+          <div className="clinical-grid mt-3">
+            <div className="clinical-field">
+              <Label htmlFor="create-patient-id" className="clinical-label-row mb-0">ID</Label>
+              <TextInput id="create-patient-id" className="clinical-control" value={nextId} readOnly />
             </div>
-            <div>
-              <Label>Шифр</Label>
-              <TextInput value={displayedCode} onChange={(event) => {
-                setManualCode(true);
-                setCode(event.target.value);
+            <div className="clinical-field">
+              <Label htmlFor="create-patient-code" className="clinical-label-row mb-0">Шифр</Label>
+              <TextInput id="create-patient-code" className="clinical-control" value={displayedCode} onChange={event => {
+                setManualCode(true); setCode(event.target.value);
               }} />
             </div>
-            <div>
-              <Label>Группа/центр</Label>
-              <Select
-                value={center}
-                onChange={(event) => {
-                  const nextCenter = event.target.value;
-                  setCenter(nextCenter);
-                  setManualCode(false);
-                  setCode("");
-                }}
-              >
-                {CENTERS.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
+            <div className="clinical-field">
+              <Label htmlFor="create-patient-center" className="clinical-label-row mb-0">Группа/центр</Label>
+              <Select id="create-patient-center" className="clinical-control" value={center} onChange={event => {
+                setCenter(event.target.value); setManualCode(false); setCode("");
+              }}>
+                {CENTERS.map(item => <option key={item}>{item}</option>)}
               </Select>
             </div>
-            <div>
-              <Label>Дата операции</Label>
-              <TextInput
-                value={operationDate}
-                placeholder="дд.мм.гггг"
-                onChange={(event) => setOperationDate(event.target.value)}
-              />
+            <div className="clinical-field">
+              <Label htmlFor="create-operation-date" className="clinical-label-row mb-0">Дата операции</Label>
+              <TextInput id="create-operation-date" className="clinical-control" value={operationDate} placeholder="дд.мм.гггг" onChange={event => setOperationDate(event.target.value)} />
             </div>
           </div>
         </Card>
         <CrfTabs role={user?.role} active={activeSection} onChange={setSelectedSection} creating />
-            <Card className="p-5">
-              <h2 className="text-base font-semibold text-slate-900">
-                {sectionLabel(activeSection)}
-              </h2>
-              <div className="clinical-grid mt-4">
-                {fieldsOfSection(activeSection).map((field) => (
-                  <FieldControl
-                    key={field.key}
-                    fieldKey={field.key}
-                    name={field.label}
-                    value={values[field.key] || ""}
-                    hint={field.hint}
-                    editable={!field.computedFrom}
-                    onChange={(value) =>
-                      setValues((current) =>
-                        applyBmiToValues({
-                          ...current,
-                          [field.key]: value,
-                        })
-                      )
-                    }
-                  />
-                ))}
-              </div>
-            </Card>
-        <div className="flex flex-wrap gap-2">
-          <Button type="submit" disabled={pending}>Сохранить карточку</Button>
-          <Button type="button" variant="secondary" onClick={onCancel}>
-            Отмена
-          </Button>
-        </div>
+        <Card className="p-5">
+          <h2 className="mb-5 text-lg font-semibold">{sectionLabel(activeSection)}</h2>
+          <CrfFields
+            fields={fieldsOfSection(activeSection).map(field => ({ key: field.key, name: field.label, hint: field.hint, value: "" }))}
+            values={values} editable
+            onChange={(key, value) => setValues(current => ({ ...current, [key]: value }))}
+          />
+        </Card>
+        <PatientFormActions creating dirty={dirty} pending={pending} onBack={onCancel} />
       </form>
     </>
   );

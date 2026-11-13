@@ -42,38 +42,34 @@
 @layer components {
   .clinical-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    column-gap: 1rem;
-    row-gap: 0.25rem;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 260px));
+    column-gap: 1.25rem;
+    row-gap: 0.5rem;
   }
   .clinical-field { display: flex; flex-direction: column; min-width: 0; padding-top: 0.5rem; row-gap: 0.25rem; }
-  .clinical-label { display: flex; align-items: flex-end; min-height: 0; margin-bottom: 0.25rem; overflow-wrap: anywhere; }
+  .clinical-grid-medium { grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 520px)); }
+  .clinical-field-long { display: flex; width: 100%; }
+  .clinical-field-long .clinical-label-row { align-self: stretch; }
+  .clinical-field-long textarea { min-height: 8.5rem; }
+  .clinical-label-row { display: flex; align-items: flex-end; align-self: end; gap: 0.375rem; min-width: 0; }
+  .clinical-label { display: block; flex: 1; min-height: 0; overflow-wrap: anywhere; }
   .clinical-control { align-self: start; }
-  .clinical-field-compact .clinical-control { max-width: 12rem; }
   .clinical-hint { min-height: 0; margin-top: 0.25rem; font-size: 0.75rem; line-height: 1.25rem; color: hsl(var(--muted-foreground)); overflow-wrap: anywhere; }
-  .clinical-field-wide { grid-column: 1 / -1; }
+  html { scroll-padding-bottom: 9rem; }
+  .clinical-control { scroll-margin-bottom: 9rem; }
+  body:has(.patient-form-actions) .app-toast { bottom: 10rem; }
   .filter-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
   .filter-grid > div { min-width: 0; }
   .filter-grid label { min-height: 1.25rem; }
   @media (min-width: 768px) {
-    .clinical-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-    .clinical-field { grid-column: span 2; }
-    .clinical-field-compact { grid-column: span 1; }
-    .clinical-field-wide { grid-column: 1 / -1; }
     .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  }
-  @media (min-width: 1280px) {
-    .clinical-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-    .clinical-field { grid-column: span 2; }
-    .clinical-field-compact { grid-column: span 1; }
-    .clinical-field-medium { grid-column: span 3; }
-    .clinical-field-wide { grid-column: 1 / -1; }
   }
   @media (min-width: 1536px) {
     .filter-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   }
   @supports (grid-template-rows: subgrid) {
     .clinical-field { display: grid; grid-template-rows: subgrid; grid-row: span 3; row-gap: 0.25rem; }
+    .clinical-field-long { display: flex; grid-row: auto; }
     .clinical-label { align-self: end; margin-bottom: 0; }
     .clinical-hint { margin-top: 0; }
   }

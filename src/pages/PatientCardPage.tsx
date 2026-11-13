@@ -30,12 +30,8 @@ export function PatientCardPage() {
 
   return (
     <>
-      <PageHeader
-        title="Карточка пациента"
-        description="Данные пациента по разделам карточки."
-      />
+      <h1 className="mb-4 text-2xl font-semibold tracking-tight">Карточка пациента</h1>
       <PatientHeader patient={card.patient} />
-      {card.hasDraft && <p role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Есть несохранённые изменения. При выходе по бездействию предложим восстановить их после входа в этой вкладке. Для записи в систему нажмите «Сохранить».</p>}
       <PatientLockBar
         lockLabel={card.lockLabel}
         lockedByOther={card.lockedByOther}
@@ -56,6 +52,8 @@ export function PatientCardPage() {
         values={card.values}
         editable={card.editable}
         canSave={card.canSave}
+        dirty={card.hasDraft}
+        pending={card.pending}
         onChange={card.setField}
         onSave={card.requestSave}
         onBack={() => navigate("/journal")}

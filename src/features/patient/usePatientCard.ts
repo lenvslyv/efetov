@@ -6,8 +6,7 @@ import { startOperation, finishOperation, cancelOperation } from "@/shared/lib/p
 import { api } from "@/api/mock";
 import { tryApi } from "@/api/errors";
 import { useRuntime } from "@/api/useRuntime";
-import { applyBmiToValues } from "@/entities/crf/computed";
-import { mergeSection, withComputed } from "@/entities/crf/merge";
+import { mergeSection } from "@/entities/crf/merge";
 import { sectionById, sectionLabel } from "@/entities/crf/sections";
 import {
   holdsLock,
@@ -23,7 +22,7 @@ import { useToast } from "@/shared/ui/toast";
 
 function sectionValues(patient: Patient, sectionId: number): Record<string, string> {
   const next: Record<string, string> = {};
-  withComputed(mergeSection(sectionId, patient.blocks)).forEach((field) => {
+  mergeSection(sectionId, patient.blocks).forEach((field) => {
     if (field.key) next[field.key] = field.value ?? "";
   });
   return next;
@@ -41,6 +40,7 @@ export function usePatientCard(id: string | undefined) {
   const [leaderEditOpen, setLeaderEditOpen] = useState(false);
   const leaveSave = useRef<((result: boolean) => void) | null>(null);
   const saving = useRef(false);
+  const [pending, setPending] = useState(false);
 
   const sectionId = visibleSections.includes(activeSection)
     ? activeSection
@@ -50,7 +50,7 @@ export function usePatientCard(id: string | undefined) {
   const lockOwner = lockOwnerId(patient?.lock);
   const editable = canEditPatientSection(user, patient, sectionId) && !lockedByOther;
   const fields = patient
-    ? withComputed(mergeSection(sectionId, patient.blocks))
+    ? mergeSection(sectionId, patient.blocks)
     : [];
   const values = patient
     ? { ...sectionValues(patient, sectionId), ...drafts[sectionId] }
@@ -106,6 +106,7 @@ export function usePatientCard(id: string | undefined) {
     });
     if (conflicts && !window.confirm("После начала редактирования данные карточки изменились. Заменить изменённые поля значениями из вашего черновика?")) return completeSave(false);
     saving.current = true;
+    setPending(true);
     try {
       startOperation("patient.save");
       const saved = await tryApi(
@@ -126,6 +127,7 @@ export function usePatientCard(id: string | undefined) {
       return completeSave(false);
     } finally {
       saving.current = false;
+      setPending(false);
     }
   };
   const dirty = Boolean(patient && Object.entries(drafts).some(([section, values]) =>
@@ -186,6 +188,7 @@ export function usePatientCard(id: string | undefined) {
   return {
     patient,
     hasDraft: dirty,
+    pending,
     sectionId,
     sectionLabel: sectionById(sectionId)
       ? sectionLabel(sectionId)
@@ -215,12 +218,9 @@ export function usePatientCard(id: string | undefined) {
       setDrafts((current) => {
         const base = current[sectionId] ?? {};
         const next = { ...base, [key]: value };
-        const touchesAnthropometry = key === "height" || key === "weight";
         return {
           ...current,
-          [sectionId]: touchesAnthropometry
-            ? { ...next, bmi: applyBmiToValues({ ...sectionValues(patient, sectionId), ...next }).bmi }
-            : next,
+          [sectionId]: next,
         };
       });
     },
