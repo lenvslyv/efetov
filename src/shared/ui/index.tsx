@@ -49,10 +49,10 @@ export function Kpi({ title, value, note, tone = "blue" }: { title: string; valu
   </Card>;
 }
 
-export function Modal({ children, onClose, title = "Диалог", dismissible = true, className }: { children: ReactNode; onClose: () => void; title?: string; dismissible?: boolean; className?: string }) {
+export function Modal({ children, onClose, title = "Диалог", dismissible = true, className, fixedHeader = false }: { children: ReactNode; onClose: () => void; title?: string; dismissible?: boolean; className?: string; fixedHeader?: boolean }) {
   return <Dialog open onOpenChange={open => { if (!open && dismissible) onClose(); }}>
-    <DialogContent showCloseButton={dismissible} className={cn("p-0 sm:p-0 [&>div]:border-0 [&>div]:bg-transparent [&>div]:shadow-none [&_h2]:pr-7", className)}>
-      <DialogTitle className="sr-only">{title}</DialogTitle>
+    <DialogContent header={fixedHeader ? <DialogTitle className="text-lg font-semibold">{title}</DialogTitle> : undefined} showCloseButton={dismissible} className={cn("p-0 sm:p-0 [&>.dialog-scroll-area>div]:border-0 [&>.dialog-scroll-area>div]:bg-transparent [&>.dialog-scroll-area>div]:shadow-none [&_h2]:pr-7", className)}>
+      {!fixedHeader && <DialogTitle className="sr-only">{title}</DialogTitle>}
       {children}
     </DialogContent>
   </Dialog>;

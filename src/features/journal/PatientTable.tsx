@@ -110,6 +110,7 @@ export function PatientTable({
           </tbody>
         </table>
       </div>
+      {rows.length === 0 && <p role="status" className="border-t px-4 py-10 text-center text-sm text-muted-foreground">Нет карточек для отображения. Проверьте условия поиска или сбросьте фильтры.</p>}
     </Card>
   );
 }
