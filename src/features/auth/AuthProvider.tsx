@@ -116,6 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(
     async (loginValue: string, password: string) => {
+        setLoginError("");
       try {
         const found = await api.authenticate(
           loginValue,

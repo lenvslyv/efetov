@@ -11,6 +11,10 @@ export interface FileTreeNode {
   folders: Record<string, FileTreeNode>;
 }
 
+export function normalizeFolder(path: string): string {
+  return path.split("/").map(part => part.trim()).filter(Boolean).join(" / ");
+}
+
 export function listFolders(files: StoredFile[], extra: string[] = []): string[] {
   const paths = new Set<string>();
   const add = (path: string) => {

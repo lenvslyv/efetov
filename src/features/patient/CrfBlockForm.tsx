@@ -1,5 +1,5 @@
 import type { Field } from "@/entities/patient/types";
-import { Card } from "@/shared/ui";
+import { Badge, Card } from "@/shared/ui";
 import { PatientFormActions } from "./PatientFormActions";
 import { CrfFields } from "./CrfFields";
 
@@ -41,6 +41,7 @@ export function CrfBlockForm({
                   : "Только просмотр."}
           </p>
         </div>
+        <Badge tone={editable ? "blue" : "slate"}>{editable ? "Доступно редактирование" : "Только просмотр"}</Badge>
       </div>
       <CrfFields fields={fields} values={values} editable={editable} onChange={onChange} />
     </Card>

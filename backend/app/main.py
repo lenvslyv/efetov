@@ -92,6 +92,8 @@ class CreateUserBody(BaseModel):
     email: str = ""
     password: str = ""
     passwordRepeat: str = ""
+    roles: list[str] | None = None
+    role: str = ""
 
 
 class UpdateUserBody(BaseModel):
@@ -561,18 +563,32 @@ def create_user(
     name, login, email = clean_profile(body.name, body.login, body.email)
     ensure_unique_login(db, login)
     check_new_password(body.password, body.passwordRepeat)
+    selected = []
+    effective = ""
+    if body.roles is not None:
+        if any(role not in ASSIGNABLE_ROLES for role in body.roles):
+            raise HTTPException(status_code=400, detail="Неизвестная роль")
+        selected = [role for role in ASSIGNABLE_ROLES if role in body.roles]
+        if not selected:
+            raise HTTPException(status_code=400, detail="Назначьте хотя бы одну роль")
+        effective = selected[0] if len(selected) == 1 else body.role
+        if effective not in selected:
+            raise HTTPException(status_code=400, detail="Выберите рабочую роль из назначенных")
     user = User(
         id=next_user_id(db),
         login=login,
         password_hash=hash_password(body.password),
-        role="",
+        role=effective,
         name=name,
         email=email,
-        assigned_roles="[]",
+        assigned_roles=json.dumps(selected, ensure_ascii=False),
         blocked=0,
     )
     db.add(user)
     add_audit(db, actor, "Создание учётной записи", f"Создана учётная запись {login}")
+    if selected:
+        labels = ", ".join(ROLE_LABELS[role] for role in selected)
+        add_audit(db, actor, "Изменение прав", f"{login}: {labels}")
     db.commit()
     return account_dict(user)
 

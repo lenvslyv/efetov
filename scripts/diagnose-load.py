@@ -30,6 +30,14 @@ with (OUT/'server.log').open('w',encoding='utf-8') as log:
   command = [sys.executable,'scripts/pmi-api.py','--only-load']
   if len(sys.argv)>2 and sys.argv[2]=='fields':
    command = ['C:/Program Files/nodejs/node.exe','scripts/check-field-layout.cjs']
+  if len(sys.argv)>2 and sys.argv[2]=='workspace-ui':
+   command = ['C:/Program Files/nodejs/node.exe','scripts/check-workspace-ui.cjs']
+  if len(sys.argv)>2 and sys.argv[2]=='admin-ui':
+   command = ['C:/Program Files/nodejs/node.exe','scripts/check-admin-ui.cjs']
+  if len(sys.argv)>2 and sys.argv[2]=='login-ui':
+   command = ['C:/Program Files/nodejs/node.exe','scripts/check-login-ui.cjs']
+  if len(sys.argv)>2 and sys.argv[2]=='shell-ui':
+   command = ['C:/Program Files/nodejs/node.exe','scripts/check-shell-ui.cjs']
   if len(sys.argv)>2 and sys.argv[2]=='navigation':
    command = ['C:/Program Files/nodejs/node.exe','scripts/check-navigation-drafts.cjs']
   if len(sys.argv)>2 and sys.argv[2]=='browser':

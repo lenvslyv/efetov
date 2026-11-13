@@ -9,6 +9,7 @@ import { Card } from "./components/card";
 import { fieldPresentation } from "@/entities/crf/presentation";
 import { FieldHelp } from "./FieldHelp";
 import { fieldLayout } from "@/entities/crf/layout";
+import { ExpandableText } from "./ExpandableText";
 
 export { Label, TextInput, TextArea, Card };
 
@@ -20,7 +21,7 @@ export function Button({ variant = "primary", ...props }: ButtonHTMLAttributes<H
 }
 
 export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn("h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70", className)} {...props} />;
+  return <select className={cn("app-select h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition-colors hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70", className)} {...props} />;
 }
 
 export function Badge({ tone = "blue", className, ...props }: HTMLAttributes<HTMLSpanElement> & { tone?: "green" | "blue" | "amber" | "slate" | "red" }) {
@@ -77,8 +78,8 @@ export function FieldControl({ name, value, hint, fieldKey, editable, onChange }
       <Label htmlFor={id} className="clinical-label mb-0">{presentation.label}</Label>
       {presentation.help && <FieldHelp label={presentation.label} text={presentation.help} />}
     </div>
-    <Control id={id} aria-label={name} readOnly={!editable} value={value} rows={multiline ? 5 : undefined}
-      className="clinical-control" onChange={event => { if (editable) onChange(event.target.value); }} />
+    {multiline ? <ExpandableText id={id} label={name} value={value} editable={editable} onChange={onChange} /> : <Control id={id} aria-label={name} readOnly={!editable} value={value}
+      className="clinical-control" onChange={event => { if (editable) onChange(event.target.value); }} />}
     <span aria-hidden="true" />
   </div>;
 }

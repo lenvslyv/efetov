@@ -1,3 +1,4 @@
+import { ArrowUpRight, Trash2 } from "lucide-react";
 import type { Patient } from "@/entities/patient/types";
 import { LOCK_FREE, lockOwnerId } from "@/entities/patient/lock";
 import { Badge, Button, Card } from "@/shared/ui";
@@ -31,14 +32,14 @@ export function PatientTable({
 }) {
   return (
     <Card className="overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
-          <thead>
+      <div className="max-h-[70vh] overflow-auto">
+        <table className="journal-table w-full border-separate border-spacing-0 text-sm">
+          <thead className="sticky top-0 z-30">
             <tr>
               {COLUMNS.map(([key, label]) => (
                 <th
                   key={key}
-                  className="whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-3 text-left font-semibold text-slate-600"
+                  className="whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-2 text-left font-semibold text-slate-600"
                 >
                   <button
                     type="button"
@@ -52,7 +53,7 @@ export function PatientTable({
                   </button>
                 </th>
               ))}
-              <th className="sticky right-0 z-10 whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-3 text-left font-semibold text-slate-600 shadow-[-8px_0_8px_-8px_rgba(15,23,42,0.35)]">
+              <th className="sticky right-0 z-10 whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-2 text-left font-semibold text-slate-600 border-l">
                 Действия
               </th>
             </tr>
@@ -60,47 +61,47 @@ export function PatientTable({
           <tbody>
             {rows.map((patient) => (
               <tr key={patient.id} className="group hover:bg-slate-50">
-                <td className="max-w-[280px] border-b border-slate-200 px-3 py-3 font-semibold">
+                <td className="max-w-[280px] border-b border-slate-200 px-3 py-2 font-semibold">
                   {patient.id}
                 </td>
-                <td className="max-w-[280px] border-b border-slate-200 px-3 py-3">
+                <td className="max-w-[280px] border-b border-slate-200 px-3 py-2">
                   {patient.code}
                 </td>
-                <td className="max-w-[280px] border-b border-slate-200 px-3 py-3">
+                <td className="max-w-[280px] border-b border-slate-200 px-3 py-2">
                   {patient.center}
                 </td>
-                <td className="max-w-[280px] border-b border-slate-200 px-3 py-3">
+                <td className="max-w-[280px] border-b border-slate-200 px-3 py-2">
                   {patient.operationDate}
                 </td>
-                <td className="max-w-[280px] border-b border-slate-200 px-3 py-3">
+                <td className="max-w-[280px] border-b border-slate-200 px-3 py-2">
                   {patient.createdAt || "—"}
                 </td>
-                <td className="max-w-[280px] border-b border-slate-200 px-3 py-3">
+                <td className="max-w-[280px] border-b border-slate-200 px-3 py-2">
                   {patient.createdByLogin ||
                     patient.createdByName ||
                     patient.createdBy}
                 </td>
-                <td className="max-w-[280px] border-b border-slate-200 px-3 py-3">
+                <td className="max-w-[280px] border-b border-slate-200 px-3 py-2">
                   {patient.updatedAt}
                 </td>
-                <td className="max-w-[280px] border-b border-slate-200 px-3 py-3">
+                <td className="max-w-[280px] border-b border-slate-200 px-3 py-2">
                   {lockOwnerId(patient.lock) ? (
                     <Badge tone="amber">{patient.lock}</Badge>
                   ) : (
                     <Badge tone="slate">{LOCK_FREE}</Badge>
                   )}
                 </td>
-                <td className="sticky right-0 z-10 border-b border-slate-200 bg-white px-3 py-3 shadow-[-8px_0_8px_-8px_rgba(15,23,42,0.35)] group-hover:bg-slate-50">
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="secondary" onClick={() => onOpen(patient.id)}>
-                      Открыть
+                <td className="sticky right-0 z-10 border-b border-slate-200 bg-white px-3 py-2 border-l group-hover:bg-slate-50">
+                  <div className="flex flex-nowrap gap-1">
+                    <Button variant="secondary" className="h-9 w-9 p-0" title="Открыть карточку" aria-label={`Открыть карточку ${patient.code}`} onClick={() => onOpen(patient.id)}>
+                      <ArrowUpRight />
                     </Button>
                     <Button
-                      variant="danger"
+                      variant="secondary" className="h-9 w-9 p-0 text-destructive" title="Удалить карточку" aria-label={`Удалить карточку ${patient.code}`}
                       disabled={!canDelete}
                       onClick={() => onDelete(patient.id)}
                     >
-                      Удалить
+                      <Trash2 />
                     </Button>
                   </div>
                 </td>

@@ -1,4 +1,5 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/mock";
 import type { DemoUser } from "@/entities/user/types";
@@ -11,23 +12,29 @@ import { useAuth } from "./useAuth";
 export function LoginForm() {
   const { login, loginError } = useAuth();
   const navigate = useNavigate();
+  const [pending, setPending] = useState(false);
+  const submitting = useRef(false);
+  const [visible, setVisible] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submitting.current) return;
     const form = event.currentTarget;
     const loginValue = (form.elements.namedItem("login") as HTMLInputElement).value;
     const password = (form.elements.namedItem("password") as HTMLInputElement)
       .value;
-    if (await login(loginValue.trim(), password)) {
-      navigate(restoredPath(loadSession()!.id), { replace: true });
-    }
+    submitting.current = true; setPending(true);
+    try {
+      if (await login(loginValue.trim(), password)) navigate(restoredPath(loadSession()!.id), { replace: true });
+    } finally { submitting.current = false; setPending(false); }
   };
 
   return (
-    <Card className="p-8">
-      <h1 className="text-2xl font-semibold tracking-tight">Вход в систему</h1>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">Система сопровождения клинического исследования. Введите данные своей учётной записи.</p>
-      <form onSubmit={onSubmit} className="mt-8 space-y-4">
+    <Card className="p-6 shadow-sm sm:p-7">
+      <h1 className="text-xl font-semibold tracking-tight">Вход в систему</h1>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">Введите логин и пароль.</p>
+      <form onSubmit={onSubmit} className="mt-6 space-y-4" aria-busy={pending}>
         <div>
           <Label htmlFor="login">Логин</Label>
           <TextInput
@@ -35,25 +42,31 @@ export function LoginForm() {
             name="login"
             autoComplete="username"
             placeholder="Введите логин"
+            required disabled={pending} autoCapitalize="none" spellCheck={false}
           />
         </div>
         <div>
           <Label htmlFor="password">Пароль</Label>
-          <TextInput
+          <div className="relative"><TextInput
             id="password"
             name="password"
-            type="password"
+            type={visible ? "text" : "password"}
             autoComplete="current-password"
             placeholder="Введите пароль"
-          />
+            className="pr-12" required disabled={pending}
+            onKeyDown={event => setCapsLock(event.getModifierState("CapsLock"))}
+            onKeyUp={event => setCapsLock(event.getModifierState("CapsLock"))}
+            onBlur={() => setCapsLock(false)} aria-describedby={capsLock ? "caps-lock-warning" : undefined}
+          /><button type="button" disabled={pending} aria-label={visible ? "Скрыть пароль" : "Показать пароль"} aria-pressed={visible} className="touch-target absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setVisible(!visible)}>{visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</button></div>
+          {capsLock && <p id="caps-lock-warning" role="status" className="mt-2 text-xs text-amber-800">Включён Caps Lock</p>}
         </div>
         {loginError ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
             {loginError}
           </div>
         ) : null}
-        <Button className="w-full" type="submit">
-          Войти в систему
+        <Button className="min-h-10 w-full" type="submit" disabled={pending}>
+          {pending ? <><LoaderCircle aria-hidden="true" className="animate-spin" />Выполняется вход…</> : "Войти в систему"}
         </Button>
       </form>
     </Card>

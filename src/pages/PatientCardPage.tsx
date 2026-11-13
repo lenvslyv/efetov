@@ -6,6 +6,7 @@ import { CrfBlockForm } from "@/features/patient/CrfBlockForm";
 import { CrfTabs } from "@/features/patient/CrfTabs";
 import { LeaderEditConfirm } from "@/features/patient/LeaderEditConfirm";
 import { PatientHeader } from "@/features/patient/PatientHeader";
+import { PatientContext } from "@/features/patient/PatientContext";
 import { PatientLockBar } from "@/features/patient/PatientLockBar";
 import { usePatientCard } from "@/features/patient/usePatientCard";
 import { PageHeader } from "@/shared/ui";
@@ -31,6 +32,7 @@ export function PatientCardPage() {
   return (
     <>
       <h1 className="mb-4 text-2xl font-semibold tracking-tight">Карточка пациента</h1>
+      <PatientContext id={card.patient.id} code={card.patient.code} center={card.patient.center} section={card.sectionLabel} editable={card.editable} dirty={card.hasDraft} pending={card.pending} lock={card.lockLabel} />
       <PatientHeader patient={card.patient} />
       <PatientLockBar
         lockLabel={card.lockLabel}

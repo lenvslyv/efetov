@@ -14,6 +14,8 @@ import { fieldPresentation } from "../src/entities/crf/presentation";
 import { CRF_SCHEMA } from "../src/entities/crf/schema";
 import { CRF_FIELD_GROUPS, groupFields } from "../src/entities/crf/layout";
 import { CrfFields } from "../src/features/patient/CrfFields";
+import { FileTree } from "../src/features/files/FileTree";
+import { AuditTable } from "../src/features/audit/AuditTable";
 
 let count = 0;
 function checkFieldHelp() {
@@ -113,5 +115,32 @@ check("Journal retains all seven filtering controls and export actions", () => {
   assert.equal((html.match(/<input/g) || []).length, 6);
   assert.equal((html.match(/<select/g) || []).length, 1);
   assert.ok(html.includes("Итоговая выгрузка") && html.includes("Статистический срез"));
+});
+check("Explorer preserves legacy folder paths, metadata and download-only access", () => {
+  const files = [{ name: "proof.txt", folder: "2026/June", author: "Doctor", date: "13.11.2026", comment: "Full comment" }];
+  const html = renderToStaticMarkup(<FileTree files={files} selected="2026 / June" onSelect={() => {}} canManage={false} onDownload={() => {}} onDelete={() => {}} onDeleteFolder={() => {}} />);
+  for (const text of ["proof.txt", "Doctor", "13.11.2026", "Full comment", "Скачать proof.txt"]) assert.ok(html.includes(text));
+  assert.ok(!html.includes("Удалить"));
+});
+check("Audit renders every result and offers only detail viewing", () => {
+  const rows = Array.from({length: 101}, (_, index) => ({time:"13.11.2026", userId:`user-${index}`, role:"Врач", action:"Вход", details:`event-${index}`}));
+  const html = renderToStaticMarkup(<AuditTable rows={rows} />);
+  assert.equal((html.match(/Подробнее о событии /g) || []).length, 101);
+  assert.ok(html.includes("event-100"));
+  assert.ok(!html.includes("Удалить") && !html.includes("Сохранить"));
+});
+check("Empty directories omit file tables and expose only permitted actions", () => {
+  const props = { files: [], folders: ["Empty"], selected: "Empty", onSelect: () => {}, onDownload: () => {}, onDelete: () => {}, onDeleteFolder: () => {}, onCreate: () => {}, onUpload: () => {} };
+  const doctor = renderToStaticMarkup(<FileTree {...props} canManage={false} />);
+  assert.ok(doctor.includes("Папка пуста") && !doctor.includes("<table"));
+  assert.ok(!doctor.includes("Загрузить файл") && !doctor.includes("Создать папку"));
+  const manager = renderToStaticMarkup(<FileTree {...props} canManage />);
+  assert.ok(manager.includes("Загрузить файл") && manager.includes("Создать папку"));
+});
+check("Folders with child directories are not labelled empty and omit empty file tables", () => {
+  const html = renderToStaticMarkup(<FileTree files={[]} folders={["Parent / Child"]} selected="Parent" onSelect={() => {}} canManage={false} onDownload={() => {}} onDelete={() => {}} onDeleteFolder={() => {}} />);
+  assert.ok(!html.includes("<table") && !html.includes("Папка пуста"));
+  assert.ok(html.includes('aria-label="Открыть папку Parent"'));
+  assert.ok(html.includes('aria-label="Открыть папку Parent / Child (пусто)"'));
 });
 console.log(`${count} design/component checks passed`);
