@@ -7,9 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-TEST_DATA = tempfile.TemporaryDirectory(prefix="efetov-tests-")
-os.environ["EFETOV_DATA_DIR"] = TEST_DATA.name
-os.environ["EFETOV_DB_PATH"] = str(Path(TEST_DATA.name) / "test.db")
+from test_environment import TEST_DATA
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from fastapi.testclient import TestClient
@@ -41,6 +39,86 @@ class ApiRegression(unittest.TestCase):
 
     def headers(self, token):
         return {"Authorization": f"Bearer {token}"}
+
+    def test_account_center_is_persisted_updated_and_cleared(self):
+        headers = self.headers(self.login())
+        profile = {"name": "Врач центра", "login": "center-test", "email": "center@example.org"}
+        created = self.client.post("/api/users", headers=headers, json={
+            **profile, "center": "  Сеченовский университет  ",
+            "password": "Doctor12", "passwordRepeat": "Doctor12", "roles": ["stationary"],
+        })
+        self.assertEqual(created.status_code, 200, created.text)
+        account = created.json()
+        self.assertEqual(account["center"], "Сеченовский университет")
+        path = f"/api/users/{account['id']}"
+        doctor = self.headers(self.login("stationary_doctor", "Doctor123"))
+        self.assertEqual(self.client.put(path, headers=doctor, json={**profile, "center": "Другой"}).status_code, 403)
+        self.assertEqual(self.client.put(path, headers=headers, json={**profile, "center": "  Новый центр  "}).json()["center"], "Новый центр")
+        self.assertEqual(self.client.put(path, headers=headers, json=profile).json()["center"], "Новый центр")
+        self.assertEqual(self.client.put(path, headers=headers, json={**profile, "center": "X" * 256}).status_code, 422)
+        rows = self.client.get("/api/users", headers=self.headers(self.login())).json()
+        self.assertEqual(next(row for row in rows if row["id"] == account["id"])["center"], "Новый центр")
+        self.assertEqual(self.client.put(path, headers=headers, json={**profile, "center": "  "}).json()["center"], "")
+
+    def test_center_migration_is_repeatable_and_retains_old_rows(self):
+        from sqlalchemy import create_engine, text
+        from app.main import ensure_user_center_column
+        legacy = create_engine("sqlite://")
+        try:
+            with legacy.begin() as conn:
+                conn.execute(text("CREATE TABLE users (id VARCHAR PRIMARY KEY, name VARCHAR)"))
+                conn.execute(text("INSERT INTO users VALUES ('old-id', 'Existing user')"))
+            with patch("app.main.engine", legacy):
+                ensure_user_center_column()
+                ensure_user_center_column()
+            with legacy.connect() as conn:
+                self.assertEqual(conn.execute(text("SELECT id, name, center FROM users")).one(), ("old-id", "Existing user", None))
+        finally:
+            legacy.dispose()
+
+    def test_open_patient_is_authenticated_and_preserves_data(self):
+        headers = self.headers(self.login())
+        with SessionLocal() as db:
+            patient = db.query(Patient).first()
+            patient_id, updated_at = patient.id, patient.updated_at
+        self.assertEqual(self.client.get(f"/api/patients/{patient_id}").status_code, 401)
+        opened = self.client.get(f"/api/patients/{patient_id}", headers=headers)
+        self.assertEqual(opened.status_code, 200, opened.text)
+        self.assertEqual(opened.json()["id"], patient_id)
+        self.assertEqual(opened.json()["updatedAt"], updated_at)
+        self.assertEqual(self.client.get("/api/patients/nonexistent", headers=headers).status_code, 404)
+
+    def test_ui_events_renew_active_sessions_but_cannot_revive_expired_sessions(self):
+        token = self.login()
+        headers = self.headers(token)
+        data = {"page": "patient", "control": "patient.section.11"}
+        self.assertEqual(self.client.post("/api/ui-events/control.click", json=data).status_code, 401)
+        with SessionLocal() as db:
+            db.get(AuthSession, decode_token(token)["sid"]).last_seen_at = str(time.time() - 600)
+            db.commit()
+        for action in ("page.open", "control.click", "field.change", "form.submit"):
+            self.assertEqual(self.client.post(f"/api/ui-events/{action}", headers=headers, json=data).status_code, 204)
+        with SessionLocal() as db:
+            self.assertGreater(float(db.get(AuthSession, decode_token(token)["sid"]).last_seen_at), time.time() - 5)
+        self.assertEqual(self.client.post("/api/ui-events/field.change", headers=headers, json={**data, "value": "private"}).status_code, 422)
+        with SessionLocal() as db:
+            db.get(AuthSession, decode_token(token)["sid"]).last_seen_at = str(time.time() - 901)
+            db.commit()
+        self.assertEqual(self.client.post("/api/ui-events/page.open", headers=headers, json=data).status_code, 401)
+
+    def test_missing_file_can_be_restored_without_overwriting_existing_content(self):
+        headers = self.headers(self.login())
+        with SessionLocal() as db:
+            db.add(StoredFile(name="restore-content.txt", folder="", author="test", date="test", comment=""))
+            db.commit()
+        rows = self.client.get("/api/file-index", headers=headers).json()["files"]
+        self.assertFalse(next(row for row in rows if row["name"] == "restore-content.txt")["available"])
+        restored = self.client.post("/api/files", headers=headers, data={"folder": ""}, files={"file": ("restore-content.txt", b"original")})
+        self.assertEqual(restored.status_code, 200, restored.text)
+        self.assertTrue(restored.json()["available"])
+        duplicate = self.client.post("/api/files", headers=headers, data={"folder": ""}, files={"file": ("restore-content.txt", b"replacement")})
+        self.assertEqual(duplicate.status_code, 409)
+        self.assertEqual(self.client.get("/api/files/content", headers=headers, params={"name": "restore-content.txt"}).content, b"original")
 
     def test_password_rejected_at_api_without_creating_account(self):
         headers = self.headers(self.login())

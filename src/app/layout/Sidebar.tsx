@@ -31,6 +31,7 @@ export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => 
           return (
           <NavLink
             key={item.to}
+            data-network-action={`nav.${item.to.slice(1)}`}
             to={item.to}
             title={collapsed ? item.label : undefined}
             aria-label={collapsed ? item.label : undefined}
@@ -47,7 +48,7 @@ export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => 
           </NavLink>
         ); })}
       </nav>
-      {!collapsed && <div className="mt-auto pt-8 text-[11px] leading-5 text-blue-200">Клиническое исследование<br />Единое рабочее пространство</div>}
+      {!collapsed && <div className="mt-auto pt-8 text-[11px] leading-5 text-blue-200">{APP_NAME}<br />Единое рабочее пространство</div>}
     </>
   );
 }

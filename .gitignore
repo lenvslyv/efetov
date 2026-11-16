@@ -33,3 +33,6 @@ __pycache__/
 *.db
 .cache/
 
+# Local SSH keys
+/.ssh/
+

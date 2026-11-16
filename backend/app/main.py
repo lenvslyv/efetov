@@ -6,6 +6,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Literal
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -90,6 +91,7 @@ class CreateUserBody(BaseModel):
     name: str = ""
     login: str = ""
     email: str = ""
+    center: str = Field(default="", max_length=255)
     password: str = ""
     passwordRepeat: str = ""
     roles: list[str] | None = None
@@ -100,6 +102,13 @@ class UpdateUserBody(BaseModel):
     name: str = ""
     login: str = ""
     email: str = ""
+    center: str | None = Field(default=None, max_length=255)
+
+
+class UiEventBody(BaseModel):
+    model_config = {"extra": "forbid"}
+    page: Literal["journal", "patient", "patient-new", "files", "audit", "admin", "other"]
+    control: str = Field(min_length=1, max_length=128, pattern=r"^[a-zA-Z][a-zA-Z0-9_.:-]*$")
 
 
 class ChangePasswordBody(BaseModel):
@@ -210,6 +219,14 @@ def ensure_user_email_column() -> None:
             conn.execute(text("ALTER TABLE users ADD COLUMN email VARCHAR"))
 
 
+def ensure_user_center_column() -> None:
+    with engine.begin() as conn:
+        rows = conn.execute(text("PRAGMA table_info(users)")).fetchall()
+        names = {row[1] for row in rows}
+        if names and "center" not in names:
+            conn.execute(text("ALTER TABLE users ADD COLUMN center VARCHAR"))
+
+
 def ensure_user_status_column() -> None:
     with engine.begin() as conn:
         rows = conn.execute(text("PRAGMA table_info(users)")).fetchall()
@@ -230,6 +247,7 @@ async def lifespan(_app: FastAPI):
     ensure_user_seen_column()
     ensure_user_roles_column()
     ensure_user_email_column()
+    ensure_user_center_column()
     ensure_user_status_column()
     db = SessionLocal()
     try:
@@ -407,6 +425,17 @@ def record_export(
     return {"ok": True}
 
 
+@app.post("/api/ui-events/{action}", status_code=204)
+def ui_event(
+    action: Literal["page.open", "control.click", "field.change", "form.submit"],
+    body: UiEventBody,
+    actor: Actor = Depends(get_current_user),
+):
+    # Diagnostic metadata contains no field values or patient text.
+    logging.getLogger("uvicorn.error").info("UI action=%s page=%s control=%s", action, body.page, body.control)
+    return Response(status_code=204)
+
+
 @app.post("/api/session/touch")
 def touch_session(actor: Actor = Depends(get_current_user), db: Session = Depends(get_db)):
     mark_seen(actor.session)
@@ -452,6 +481,7 @@ def account_dict(user: User) -> dict:
         "name": user.name,
         "login": user.login,
         "email": user.email or "",
+        "center": user.center or "",
         "role": user.role,
         "roles": assigned_role_list(user),
         "blocked": bool(user.blocked),
@@ -581,6 +611,7 @@ def create_user(
         role=effective,
         name=name,
         email=email,
+        center=body.center.strip(),
         assigned_roles=json.dumps(selected, ensure_ascii=False),
         blocked=0,
     )
@@ -607,7 +638,9 @@ def update_user(
     user.name = name
     user.login = login
     user.email = email
-    add_audit(db, actor, "Изменение учётной записи", f"{login}: обновлены ФИО, логин и почта")
+    if body.center is not None:
+        user.center = body.center.strip()
+    add_audit(db, actor, "Изменение учётной записи", f"{login}: обновлены сведения учётной записи")
     db.commit()
     return account_dict(user)
 
@@ -752,6 +785,18 @@ def delete_patient(
     )
     db.commit()
     return payload
+
+
+@app.get("/api/patients/{patient_id}")
+def open_patient(
+    patient_id: str,
+    actor: Actor = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    patient = get_patient(db, patient_id)
+    add_audit(db, actor, "Открытие карточки пациента", f"Открыта карточка ID {patient.id}")
+    db.commit()
+    return patient_to_dict(patient, users_map(db))
 
 
 @app.put("/api/patients/{patient_id}/sections")
@@ -961,9 +1006,16 @@ async def upload_file(
     require_permission(db, actor, "files.manage")
     target = require_folder(db, folder)
     name = clean_file_name(file.filename)
-    if db.query(StoredFile).filter(StoredFile.name == name).first():
+    existing = db.query(StoredFile).filter(StoredFile.name == name).first()
+    if existing and upload_path(existing.id).is_file():
         raise HTTPException(status_code=409, detail="Файл с таким именем уже есть")
     content = await file.read()
+    if existing:
+        # Restore missing bytes only; never overwrite a working file silently.
+        write_upload(existing.id, content)
+        add_audit(db, actor, "Восстановление файла", f"Восстановлено содержимое файла «{name}»")
+        db.commit()
+        return file_to_dict(existing)
     stored = StoredFile(
         name=name,
         folder=target,

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/api/mock";
 import { useAuth } from "@/features/auth/useAuth";
-import { browserSession, recordActivity, sessionKey } from "@/features/auth/session";
+import { browserSession, loadToken, recordActivity } from "@/features/auth/session";
+import { lastServerActivity, needsSessionSync, recordServerActivity } from "@/features/auth/serverActivity";
 import { IDLE_TIMEOUT_MS, IDLE_WARNING_MS } from "@/shared/config/brand";
 import { Button, Card, Modal } from "@/shared/ui";
 import { useToast } from "@/shared/ui/toast";
@@ -17,8 +18,8 @@ export function IdleTimeout() {
   useEffect(() => {
     if (!user) return;
     let expired = false;
-    let pingTimer: number | undefined;
-    const pingKey = sessionKey() + ":ping";
+    let pingPending = false;
+    let lastPingAttempt = 0;
     const check = () => {
       const current = browserSession();
       if (!current || expired) return;
@@ -31,11 +32,11 @@ export function IdleTimeout() {
       } else setWarning(remaining <= IDLE_WARNING_MS);
     };
     const ping = () => {
-      if (!browserSession() || expired) return;
-      const last = Number(localStorage.getItem(pingKey) || 0);
-      if (Date.now() - last < 900) return;
-      localStorage.setItem(pingKey, String(Date.now()));
-      void api.touchSession().catch(() => undefined);
+      const token = loadToken();
+      if (!token || expired || pingPending || Date.now() - lastPingAttempt < 60_000 || !needsSessionSync(Date.now(), lastServerActivity(token))) return;
+      lastPingAttempt = Date.now();
+      pingPending = true;
+      void api.touchSession().then(() => recordServerActivity(token)).catch(() => undefined).finally(() => { pingPending = false; });
     };
     const activity = (event?: Event) => {
       if (event && !event.isTrusted) return;
@@ -44,10 +45,7 @@ export function IdleTimeout() {
       if (expired || !browserSession()) return;
       recordActivity();
       setWarning(false);
-      const last = Number(localStorage.getItem(pingKey) || 0);
-      if (Date.now() - last >= 10_000) ping();
-      window.clearTimeout(pingTimer);
-      pingTimer = window.setTimeout(ping, 1000);
+      ping();
     };
     const visible = () => { if (!document.hidden) check(); };
     stay.current = () => activity();
@@ -59,7 +57,6 @@ export function IdleTimeout() {
     document.addEventListener("visibilitychange", visible);
     return () => {
       window.clearInterval(timer);
-      window.clearTimeout(pingTimer);
       EVENTS.forEach(event => window.removeEventListener(event, activity));
       window.removeEventListener("storage", check);
       window.removeEventListener("focus", check);

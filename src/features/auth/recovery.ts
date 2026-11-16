@@ -26,7 +26,7 @@ export function readDraft<T>(userId: string | undefined, kind: string): T | null
   return (userId ? drafts.get(userId)?.get(kind) as T | undefined : undefined) ?? null;
 }
 export function writeDraft(userId: string | undefined, kind: string, value: unknown) {
-  if (!userId) return;
+  if (!userId || /^(?:new|patient:[^:]+):section$/.test(kind)) return;
   if (!drafts.has(userId)) drafts.set(userId, new Map());
   drafts.get(userId)!.set(kind, value);
 }

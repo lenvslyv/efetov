@@ -4,6 +4,7 @@ export interface StoredFile {
   author: string;
   date: string;
   comment: string;
+  available?: boolean;
 }
 
 export interface FileTreeNode {

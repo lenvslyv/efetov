@@ -22,6 +22,7 @@ export interface AccountRecord {
   name: string;
   login: string;
   email: string;
+  center: string;
   role: Role | "";
   roles: AssignableRole[];
   blocked: boolean;
@@ -31,6 +32,7 @@ export interface AccountProfileInput {
   name: string;
   login: string;
   email: string;
+  center?: string;
 }
 
 export interface AccountPasswordInput {

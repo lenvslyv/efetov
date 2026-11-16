@@ -23,7 +23,7 @@ export function JournalFilters({ filters, centers, canCreate, canExport, onPatch
 }) {
   return <>
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <Button disabled={!canCreate} onClick={onCreate}><Plus />Создать карточку пациента</Button>
+      <Button className="max-w-full" data-network-action="patient.create.open" disabled={!canCreate} onClick={onCreate}><Plus />Создать карточку пациента</Button>
       <div className="flex flex-wrap gap-2">
         {onRefresh && <Button variant="secondary" disabled={refreshing} onClick={onRefresh}><RotateCcw />{refreshing ? "Обновление…" : "Обновить журнал"}</Button>}
         {canExport && <><Button variant="exportSlice" onClick={onExportSlice}><FileSpreadsheet />Статистический срез</Button><Button variant="secondary" onClick={onExportFinal}><Download />Итоговая выгрузка</Button></>}

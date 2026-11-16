@@ -1,0 +1,42 @@
+2026-11-16 11:46:46,746 INFO o.a.j.u.JMeterUtils: Setting Locale to ru_RU
+2026-11-16 11:46:48,365 ERROR o.a.j.JMeter: An error occurred: 
+org.apache.logging.log4j.core.appender.AppenderLoggingException: java.lang.ExceptionInInitializerError
+	at org.apache.logging.log4j.core.config.AppenderControl.tryCallAppender(AppenderControl.java:164) [log4j-core-2.22.1.jar:2.22.1]
+	at org.apache.logging.log4j.core.config.AppenderControl.callAppender0(AppenderControl.java:133) [log4j-core-2.22.1.jar:2.22.1]
+	at org.apache.logging.log4j.core.config.AppenderControl.callAppenderPreventRecursion(AppenderControl.java:124) [log4j-core-2.22.1.jar:2.22.1]
+	at org.apache.logging.log4j.core.config.AppenderControl.callAppender(AppenderControl.java:88) [log4j-core-2.22.1.jar:2.22.1]
+	at org.apache.logging.log4j.core.config.LoggerConfig.callAppenders(LoggerConfig.java:705) [log4j-core-2.22.1.jar:2.22.1]
+	at org.apache.logging.log4j.core.config.LoggerConfig.processLogEvent(LoggerConfig.java:663) [log4j-core-2.22.1.jar:2.22.1]
+	at org.apache.logging.log4j.core.config.LoggerConfig.log(LoggerConfig.java:639) [log4j-core-2.22.1.jar:2.22.1]
+	at org.apache.logging.log4j.core.config.LoggerConfig.log(LoggerConfig.java:575) [log4j-core-2.22.1.jar:2.22.1]
+	at org.apache.logging.log4j.core.config.AwaitCompletionReliabilityStrategy.log(AwaitCompletionReliabilityStrategy.java:92) [log4j-core-2.22.1.jar:2.22.1]
+	at org.apache.logging.log4j.core.Logger.log(Logger.java:169) [log4j-core-2.22.1.jar:2.22.1]
+	at org.apache.logging.log4j.spi.AbstractLogger.tryLogMessage(AbstractLogger.java:2933) [log4j-api-2.22.1.jar:2.22.1]
+	at org.apache.logging.log4j.spi.AbstractLogger.logMessageTrackRecursion(AbstractLogger.java:2886) [log4j-api-2.22.1.jar:2.22.1]
+	at org.apache.logging.log4j.spi.AbstractLogger.logMessageSafely(AbstractLogger.java:2868) [log4j-api-2.22.1.jar:2.22.1]
+	at org.apache.logging.log4j.spi.AbstractLogger.logMessage(AbstractLogger.java:2664) [log4j-api-2.22.1.jar:2.22.1]
+	at org.apache.logging.log4j.spi.AbstractLogger.logIfEnabled(AbstractLogger.java:2429) [log4j-api-2.22.1.jar:2.22.1]
+	at org.apache.logging.slf4j.Log4jLogger.info(Log4jLogger.java:184) [log4j-slf4j-impl-2.22.1.jar:2.22.1]
+	at org.apache.jmeter.util.JMeterUtils.setLocale(JMeterUtils.java:445) ~[ApacheJMeter_core.jar:5.6.3]
+	at org.apache.jmeter.util.JMeterUtils.initLocale(JMeterUtils.java:202) ~[ApacheJMeter_core.jar:5.6.3]
+	at org.apache.jmeter.JMeter.initializeProperties(JMeter.java:743) ~[ApacheJMeter_core.jar:5.6.3]
+	at org.apache.jmeter.JMeter.start(JMeter.java:379) [ApacheJMeter_core.jar:5.6.3]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[?:?]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[?:?]
+	at org.apache.jmeter.NewDriver.main(NewDriver.java:259) [ApacheJMeter.jar:5.6.3]
+Caused by: java.lang.ExceptionInInitializerError
+	at org.apache.jmeter.gui.logging.GuiLogEventAppender.append(GuiLogEventAppender.java:54) ~[ApacheJMeter_core.jar:5.6.3]
+	at org.apache.logging.log4j.core.config.AppenderControl.tryCallAppender(AppenderControl.java:160) ~[log4j-core-2.22.1.jar:2.22.1]
+	... 22 more
+Caused by: java.lang.SecurityException: Could not open windows registry node Software\JavaSoft\Prefs at root 0xffffffff80000001: Access denied
+	at java.prefs/java.util.prefs.WindowsPreferences.openKey(WindowsPreferences.java:558) ~[?:?]
+	at java.prefs/java.util.prefs.WindowsPreferences.openKey(WindowsPreferences.java:520) ~[?:?]
+	at java.prefs/java.util.prefs.WindowsPreferences.<init>(WindowsPreferences.java:429) ~[?:?]
+	at java.prefs/java.util.prefs.WindowsPreferences.childSpi(WindowsPreferences.java:888) ~[?:?]
+	at java.prefs/java.util.prefs.AbstractPreferences.node(AbstractPreferences.java:871) ~[?:?]
+	at java.prefs/java.util.prefs.AbstractPreferences.node(AbstractPreferences.java:855) ~[?:?]
+	at java.prefs/java.util.prefs.Preferences.userNodeForPackage(Preferences.java:370) ~[?:?]
+	at org.apache.jmeter.gui.GuiPackage.<clinit>(GuiPackage.java:90) ~[ApacheJMeter_core.jar:5.6.3]
+	at org.apache.jmeter.gui.logging.GuiLogEventAppender.append(GuiLogEventAppender.java:54) ~[ApacheJMeter_core.jar:5.6.3]
+	at org.apache.logging.log4j.core.config.AppenderControl.tryCallAppender(AppenderControl.java:160) ~[log4j-core-2.22.1.jar:2.22.1]
+	... 22 more

@@ -1,6 +1,8 @@
+import type { Patient } from "@/entities/patient/types";
 import type { Permission } from "@/entities/user/roles";
 import type { AccountRecord, DemoUser, SessionUser } from "@/entities/user/types";
 import { loadToken, markSessionEnd, saveToken, saveAuthenticated } from "@/features/auth/session";
+import { recordServerActivity } from "@/features/auth/serverActivity";
 import { ForbiddenError } from "./errors";
 import type {
   AppApi,
@@ -16,6 +18,7 @@ const API_ROOT =
 
 let snapshot: RuntimeSnapshot = EMPTY_RUNTIME;
 const listeners = new Set<() => void>();
+const patientRequests = new Map<string, Promise<Patient>>();
 let onUnauthorized: ((message: string) => void) | null = null;
 
 const DEMO_PASSWORDS: Record<string, string> = {
@@ -96,7 +99,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = loadToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
   const response = await fetch(`${API_ROOT}${path}`, { ...init, headers, cache: "no-store" });
-  if (response.status === 204) return undefined as T;
+  if (response.status === 204) { recordServerActivity(token); return undefined as T; }
   const data = await response.json().catch(() => ({}));
   if (rejectUnauthorized(response.status, errorMessage(data, response.status), token)) {
     throw new Error(errorMessage(data, response.status));
@@ -111,6 +114,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     throw new Error(errorMessage(data, response.status));
   }
+  recordServerActivity(token);
   return data as T;
 }
 
@@ -139,6 +143,7 @@ async function downloadWorkbook(path: string, filename: string, init: RequestIni
   if (!response.ok) {
     throw new Error(errorMessage(data ?? {}, response.status));
   }
+  recordServerActivity(token);
   const blob = await response.blob();
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -196,6 +201,7 @@ export const api: AppApi = {
     }
     clearRuntime();
     saveAuthenticated(data.user, data.token);
+    recordServerActivity(data.token);
     await refreshRuntime();
     return data.user as SessionUser;
   },
@@ -233,6 +239,18 @@ export const api: AppApi = {
       method: "POST",
       body: JSON.stringify({ ids }),
     });
+  },
+
+  async openPatient(_actor, id) {
+    const token = loadToken();
+    const key = `${token}:${id}`;
+    const existing = patientRequests.get(key);
+    if (existing) return existing;
+    const pending = request<Patient>(`/api/patients/${encodeURIComponent(id)}`)
+      .then(patient => { upsertPatient(patient, token); return patient; })
+      .finally(() => { if (patientRequests.get(key) === pending) patientRequests.delete(key); });
+    patientRequests.set(key, pending);
+    return pending;
   },
 
   async createPatient(_actor, input: CreatePatientInput) {
@@ -294,6 +312,10 @@ export const api: AppApi = {
     return patient;
   },
 
+  async recordUiEvent(action, event) {
+    await request(`/api/ui-events/${action}`, { method: "POST", body: JSON.stringify(event) });
+  },
+
   async touchSession() {
     await request("/api/session/touch", { method: "POST" });
   },
@@ -348,6 +370,12 @@ export const api: AppApi = {
       `${API_ROOT}/api/files/content?name=${encodeURIComponent(name)}`,
       { headers }
     );
+    if (response.status === 401) {
+      const data = await response.json().catch(() => ({}));
+      const message = errorMessage(data, response.status);
+      rejectUnauthorized(response.status, message, token);
+      throw new Error(message);
+    }
     if (response.status === 403) {
       const data = await response.json().catch(() => ({}));
       const detail = data.detail ?? data;
@@ -364,6 +392,7 @@ export const api: AppApi = {
           : `Ошибка API (${response.status})`;
       throw new Error(message);
     }
+    recordServerActivity(token);
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");

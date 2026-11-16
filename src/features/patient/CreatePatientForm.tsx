@@ -38,7 +38,7 @@ export function CreatePatientForm({
   const [manualCode, setManualCode] = useDraft<boolean>(user?.id, "new:codeManual", Boolean(code));
   const [operationDate, setOperationDate] = useDraft<string>(user?.id, "new:operationDate", "");
   const [values, setValues] = useDraft<Record<string, string>>(user?.id, "new:values", {});
-  const [selectedSection, setSelectedSection] = useDraft<number>(user?.id, "new:section", 1);
+  const [selectedSection, setSelectedSection] = useState(1);
   const activeSection = selectedSection >= 1 && selectedSection <= 10 ? selectedSection : 1;
   const [pending, setPending] = useState(false);
   const discard = () => {

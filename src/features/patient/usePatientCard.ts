@@ -34,7 +34,9 @@ export function usePatientCard(id: string | undefined) {
   const { showToast } = useToast();
   const patient = patients.find((item) => item.id === id);
   const visibleSections = visibleSectionIds(user?.role);
-  const [activeSection, setActiveSection] = useDraft<number>(user?.id, `patient:${id}:section`, visibleSections[0] ?? 1);
+  const [selection, setSelection] = useState({ id, section: visibleSections[0] ?? 1 });
+  const activeSection = selection.id === id ? selection.section : visibleSections[0] ?? 1;
+  const setActiveSection = (section: number) => setSelection({ id, section });
   const [drafts, setDrafts] = useDraft<Record<number, Record<string, string>>>(user?.id, `patient:${id}:draft`, {});
   const [baselines, setBaselines] = useDraft<Record<number, Record<string, string>>>(user?.id, `patient:${id}:baseline`, {});
   const [leaderEditOpen, setLeaderEditOpen] = useState(false);

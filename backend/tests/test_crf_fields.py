@@ -7,6 +7,8 @@ import zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
+from test_environment import TEST_DATA
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.crf import apply_section_values, empty_blocks, find_stored, CRF_SCHEMA
 from app.brazhnikov import build_final_workbook, NS
