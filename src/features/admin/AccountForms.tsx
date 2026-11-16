@@ -74,10 +74,9 @@ export function CreateAccountDialog({
   };
 
   return (
-    <Modal title="Добавить пользователя" dismissible={!pending} onClose={onClose}>
+    <Modal title="Добавить пользователя" fixedHeader dismissible={!pending} onClose={onClose}>
       <Card className="p-6">
-        <h2 className="text-xl font-semibold">Добавить пользователя</h2>
-        <form onSubmit={submit} className="mt-5 space-y-5"><fieldset disabled={pending} className="space-y-3"><legend className="mb-3 text-sm font-semibold">Основные сведения</legend>
+        <form onSubmit={submit} className="space-y-5"><fieldset disabled={pending} className="space-y-3"><legend className="mb-3 text-sm font-semibold">Основные сведения</legend>
           <Field id="new-name" label="ФИО" value={name} onChange={setName} autoComplete="name" />
           <Field id="new-login" label="Логин" value={login} onChange={setLogin} autoComplete="off" />
           <Field id="new-email" label="Почта" value={email} onChange={setEmail} type="email" autoComplete="off" />
@@ -126,10 +125,9 @@ export function EditAccountDialog({
   };
 
   return (
-    <Modal title="Изменить учётную запись" dismissible={!pending} onClose={onClose}>
+    <Modal title="Изменить учётную запись" fixedHeader dismissible={!pending} onClose={onClose}>
       <Card className="p-6">
-        <h2 className="text-xl font-semibold">Изменить учётную запись</h2>
-        <form onSubmit={submit} className="mt-5 space-y-5"><fieldset disabled={pending} className="space-y-3"><legend className="mb-3 text-sm font-semibold">Основные сведения</legend>
+        <form onSubmit={submit} className="space-y-5"><fieldset disabled={pending} className="space-y-3"><legend className="mb-3 text-sm font-semibold">Основные сведения</legend>
           <Field id="edit-name" label="ФИО" value={name} onChange={setName} autoComplete="name" />
           <Field id="edit-login" label="Логин" value={login} onChange={setLogin} autoComplete="off" />
           <Field id="edit-email" label="Почта" value={email} onChange={setEmail} type="email" autoComplete="off" /></fieldset><section className="space-y-2 rounded-lg border bg-muted/30 p-3"><h3 className="text-sm font-semibold">Роли и доступ</h3><div className="flex flex-wrap gap-1">{account.roles.map(role => <Badge key={role} tone="slate">{role === "stationary" ? "Врач стационара" : role === "ambulatory" ? "Врач амбулатории" : "Руководитель"}</Badge>)}{!account.roles.length && <span className="text-xs text-muted-foreground">Роли не назначены</span>}</div><p className="text-xs text-muted-foreground">Роли настраиваются флажками в таблице. Смена пароля доступна в меню действий пользователя.</p></section>
@@ -176,9 +174,8 @@ export function PasswordDialog({
   };
 
   return (
-    <Modal title="Сменить пароль" dismissible={!pending} onClose={onClose}>
+    <Modal title="Сменить пароль" fixedHeader dismissible={!pending} onClose={onClose}>
       <Card className="p-6">
-        <h2 className="text-xl font-semibold">Сменить пароль</h2>
         <p className="mt-2 text-sm text-slate-500">{account.name}</p>
         <form onSubmit={submit} className="mt-5 space-y-5">
           <Field id="change-password" label="Новый пароль" value={password} onChange={setPassword} type="password" autoComplete="new-password" />

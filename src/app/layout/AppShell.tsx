@@ -23,14 +23,14 @@ export function AppShell() {
   const { toast } = useToast();
 
   return (
-    <div className="flex min-h-screen bg-slate-50/80" style={{ "--app-sidebar-width": collapsed ? "80px" : "256px" } as CSSProperties}>
+    <div className="flex min-h-screen bg-slate-50/80" style={{ "--app-sidebar-width": collapsed ? "80px" : "304px" } as CSSProperties}>
       <IdleTimeout />
-      <aside id="desktop-sidebar" aria-label="Боковое меню" className={`sticky top-0 hidden h-dvh shrink-0 flex-col overflow-y-auto border-r border-slate-800 bg-slate-950 text-white xl:flex ${collapsed ? "w-20 p-3" : "w-64 p-5"}`}>
-        <div className={`mb-4 flex ${collapsed ? "justify-center" : "justify-end"}`}><button type="button" className="touch-target flex size-9 items-center justify-center rounded-md text-slate-300 hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400" title={collapsed ? "Развернуть меню" : "Свернуть меню"} aria-label={collapsed ? "Развернуть меню" : "Свернуть меню"} aria-expanded={!collapsed} aria-controls="desktop-sidebar" onClick={() => setCollapsed(!collapsed)}>{collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}</button></div>
+      <aside id="desktop-sidebar" aria-label="Боковое меню" className={`sticky top-0 hidden h-dvh shrink-0 flex-col overflow-y-auto border-r border-[#23334d] bg-[#09162e] text-white xl:flex ${collapsed ? "w-20 p-3" : "w-[304px] p-5"}`}>
+        <div className={`mb-4 flex ${collapsed ? "justify-center" : "justify-end"}`}><button type="button" className="touch-target flex size-9 items-center justify-center rounded-md text-blue-100 hover:bg-[#162b49] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300" title={collapsed ? "Развернуть меню" : "Свернуть меню"} aria-label={collapsed ? "Развернуть меню" : "Свернуть меню"} aria-expanded={!collapsed} aria-controls="desktop-sidebar" onClick={() => setCollapsed(!collapsed)}>{collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}</button></div>
         <Sidebar collapsed={collapsed} />
       </aside>
       {mobileMenu ? (
-        <Modal title="Навигация" onClose={() => setMobileMenu(false)} className="left-0 top-0 h-dvh max-h-dvh w-[min(320px,calc(100vw-2rem))] max-w-none translate-x-0 translate-y-0 rounded-none border-slate-800 bg-slate-950 text-white">
+        <Modal title="Навигация" onClose={() => setMobileMenu(false)} className="left-0 top-0 h-dvh max-h-dvh w-[min(320px,calc(100vw-2rem))] max-w-none translate-x-0 translate-y-0 rounded-none border-[#23334d] bg-[#09162e] text-white [&>button]:text-blue-100 [&>button:hover]:bg-[#162b49]">
           <aside className="flex min-h-full flex-col p-6 pt-12 text-white">
             <Sidebar onNavigate={() => setMobileMenu(false)} />
           </aside>

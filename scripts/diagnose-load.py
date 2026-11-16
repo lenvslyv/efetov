@@ -38,6 +38,8 @@ with (OUT/'server.log').open('w',encoding='utf-8') as log:
    command = ['C:/Program Files/nodejs/node.exe','scripts/check-login-ui.cjs']
   if len(sys.argv)>2 and sys.argv[2]=='shell-ui':
    command = ['C:/Program Files/nodejs/node.exe','scripts/check-shell-ui.cjs']
+  if len(sys.argv)>2 and sys.argv[2]=='visual-ui':
+   command = ['C:/Program Files/nodejs/node.exe','scripts/check-visual-review.cjs']
   if len(sys.argv)>2 and sys.argv[2]=='navigation':
    command = ['C:/Program Files/nodejs/node.exe','scripts/check-navigation-drafts.cjs']
   if len(sys.argv)>2 and sys.argv[2]=='browser':

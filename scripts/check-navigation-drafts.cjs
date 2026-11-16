@@ -72,7 +72,7 @@ async function idle(page) {
   checks.push('ordinary reload: browser confirmation; no timeout recovery');
   // Section switches are within one editor and must not discard or prompt.
   await journal(page);await page.waitForURL('**/journal');
-  await page.getByRole('row').filter({has:page.getByRole('cell',{name:String(card.id),exact:true})}).getByRole('button',{name:'Открыть',exact:true}).click();
+  await page.getByRole('row').filter({has:page.getByRole('cell',{name:String(card.id),exact:true})}).getByRole('button',{name:/^Открыть карточку /}).click();
   await fio(page).waitFor();await fio(page).fill('PMI sections');
   const tabs=page.getByLabel('Разделы карточки пациента',{exact:true}).getByRole('button');
   await tabs.nth(1).click();assert(await leave(page).count()===0,'Section switch prompted');
