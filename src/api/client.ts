@@ -1,3 +1,4 @@
+import type { UiAction, UiEvent } from "@/shared/lib/uiEvents";
 import type { AuditEvent } from "@/entities/audit/types";
 import type { StoredFile } from "@/entities/file/types";
 import type { Patient } from "@/entities/patient/types";
@@ -47,6 +48,7 @@ export interface AppApi {
   recordExport(actor: SessionUser, details: string): Promise<void>;
   downloadFinalExport(actor: SessionUser): Promise<void>;
   downloadSliceExport(actor: SessionUser, ids: string[]): Promise<void>;
+  openPatient(actor: SessionUser, id: string): Promise<Patient>;
   createPatient(actor: SessionUser, input: CreatePatientInput): Promise<Patient>;
   deletePatient(actor: SessionUser, id: string): Promise<Patient | null>;
   savePatientSections(
@@ -58,6 +60,7 @@ export interface AppApi {
   unlockPatient(actor: SessionUser, patientId: string): Promise<Patient | null>;
   endSession(actor: SessionUser, reason: "manual" | "idle"): Promise<void>;
   touchSession(): Promise<void>;
+  recordUiEvent(action: UiAction, event: UiEvent): Promise<void>;
   createFolder(actor: SessionUser, parent: string, name: string): Promise<string>;
   deleteFolder(actor: SessionUser, path: string): Promise<void>;
   uploadFile(actor: SessionUser, file: File, folder: string, comment: string): Promise<StoredFile>;

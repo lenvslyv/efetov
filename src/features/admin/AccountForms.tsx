@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 import { passwordError } from "./password";
+import { CENTERS } from "@/entities/patient/code";
 import type { AccountProfileInput, AccountRecord, AssignableRole } from "@/entities/user/types";
 import { Button, Card, Label, Modal, TextInput, Badge, Select } from "@/shared/ui";
 
@@ -32,6 +33,13 @@ function Field({
   );
 }
 
+function CenterField({ id, value, onChange }: { id: string; value: string; onChange: (value: string) => void }) {
+  return <div><Label htmlFor={id}>Группа/центр</Label>
+    <TextInput id={id} list={`${id}-options`} value={value} maxLength={255} autoComplete="off" onChange={event => onChange(event.target.value)} />
+    <datalist id={`${id}-options`}>{CENTERS.map(center => <option key={center} value={center} />)}</datalist>
+  </div>;
+}
+
 function FormError({ message }: { message: string }) {
   if (!message) return null;
   return (
@@ -51,6 +59,7 @@ export function CreateAccountDialog({
   const [name, setName] = useState("");
   const [login, setLogin] = useState("");
   const [email, setEmail] = useState("");
+  const [center, setCenter] = useState("");
   const [password, setPassword] = useState("");
   const [passwordRepeat, setPasswordRepeat] = useState("");
   const [error, setError] = useState("");
@@ -66,7 +75,7 @@ export function CreateAccountDialog({
     setError("");
     const validation = passwordError(password, passwordRepeat);
     if (validation) { setError(validation); setPending(false); return; }
-    void onSubmit({ name, login, email, password, passwordRepeat, roles, role: roles.includes(effectiveRole) ? effectiveRole : roles[0] })
+    void onSubmit({ name, login, email, center, password, passwordRepeat, roles, role: roles.includes(effectiveRole) ? effectiveRole : roles[0] })
       .catch((reason: unknown) => {
         setError(reason instanceof Error ? reason.message : "Не удалось создать пользователя");
       })
@@ -80,6 +89,7 @@ export function CreateAccountDialog({
           <Field id="new-name" label="ФИО" value={name} onChange={setName} autoComplete="name" />
           <Field id="new-login" label="Логин" value={login} onChange={setLogin} autoComplete="off" />
           <Field id="new-email" label="Почта" value={email} onChange={setEmail} type="email" autoComplete="off" />
+          <CenterField id="new-center" value={center} onChange={setCenter} />
           </fieldset><fieldset disabled={pending} className="space-y-2 rounded-lg border p-3"><legend className="px-1 text-sm font-semibold">Роли и доступ</legend>{([['stationary','Врач стационара'],['ambulatory','Врач амбулатории'],['leader','Руководитель']] as const).map(([role,label]) => <label key={role} className="flex min-h-10 cursor-pointer items-center gap-3 text-sm"><input type="checkbox" className="size-4 accent-blue-600" checked={roles.includes(role)} onChange={event => setRoles(current => event.target.checked ? [...current,role] : current.filter(item => item !== role))} />{label}</label>)}{roles.length > 1 && <div className="pt-2"><Label htmlFor="new-effective-role">Рабочая роль</Label><Select id="new-effective-role" value={roles.includes(effectiveRole) ? effectiveRole : roles[0]} onChange={event => setEffectiveRole(event.target.value as AssignableRole)}>{roles.map(role => <option key={role} value={role}>{role === 'stationary' ? 'Врач стационара' : role === 'ambulatory' ? 'Врач амбулатории' : 'Руководитель'}</option>)}</Select><p className="mt-2 text-xs leading-5 text-muted-foreground">Действуют права рабочей роли. Права нескольких ролей не объединяются.</p></div>}</fieldset><fieldset disabled={pending} className="space-y-3"><legend className="mb-3 text-sm font-semibold">Пароль</legend>
           <Field id="new-password" label="Пароль" value={password} onChange={setPassword} type="password" autoComplete="new-password" />
           <Field id="new-password-repeat" label="Повтор пароля" value={passwordRepeat} onChange={setPasswordRepeat} type="password" autoComplete="new-password" /></fieldset>
@@ -110,6 +120,7 @@ export function EditAccountDialog({
   const [name, setName] = useState(account.name);
   const [login, setLogin] = useState(account.login);
   const [email, setEmail] = useState(account.email);
+  const [center, setCenter] = useState(account.center ?? "");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
 
@@ -117,7 +128,7 @@ export function EditAccountDialog({
     event.preventDefault();
     setPending(true);
     setError("");
-    void onSubmit({ name, login, email })
+    void onSubmit({ name, login, email, center })
       .catch((reason: unknown) => {
         setError(reason instanceof Error ? reason.message : "Не удалось сохранить учётную запись");
       })
@@ -130,7 +141,8 @@ export function EditAccountDialog({
         <form onSubmit={submit} className="space-y-5"><fieldset disabled={pending} className="space-y-3"><legend className="mb-3 text-sm font-semibold">Основные сведения</legend>
           <Field id="edit-name" label="ФИО" value={name} onChange={setName} autoComplete="name" />
           <Field id="edit-login" label="Логин" value={login} onChange={setLogin} autoComplete="off" />
-          <Field id="edit-email" label="Почта" value={email} onChange={setEmail} type="email" autoComplete="off" /></fieldset><section className="space-y-2 rounded-lg border bg-muted/30 p-3"><h3 className="text-sm font-semibold">Роли и доступ</h3><div className="flex flex-wrap gap-1">{account.roles.map(role => <Badge key={role} tone="slate">{role === "stationary" ? "Врач стационара" : role === "ambulatory" ? "Врач амбулатории" : "Руководитель"}</Badge>)}{!account.roles.length && <span className="text-xs text-muted-foreground">Роли не назначены</span>}</div><p className="text-xs text-muted-foreground">Роли настраиваются флажками в таблице. Смена пароля доступна в меню действий пользователя.</p></section>
+          <Field id="edit-email" label="Почта" value={email} onChange={setEmail} type="email" autoComplete="off" />
+          <CenterField id="edit-center" value={center} onChange={setCenter} /></fieldset><section className="space-y-2 rounded-lg border bg-muted/30 p-3"><h3 className="text-sm font-semibold">Роли и доступ</h3><div className="flex flex-wrap gap-1">{account.roles.map(role => <Badge key={role} tone="slate">{role === "stationary" ? "Врач стационара" : role === "ambulatory" ? "Врач амбулатории" : "Руководитель"}</Badge>)}{!account.roles.length && <span className="text-xs text-muted-foreground">Роли не назначены</span>}</div><p className="text-xs text-muted-foreground">Роли настраиваются флажками в таблице. Смена пароля доступна в меню действий пользователя.</p></section>
           <FormError message={error} />
           <div className="flex flex-wrap justify-end gap-2 border-t pt-4">
             <Button type="button" variant="secondary" disabled={pending} onClick={onClose}>

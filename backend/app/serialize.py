@@ -2,6 +2,7 @@ import json
 
 from .models import Patient, StoredFile, User
 from .rbac import LOCK_FREE, format_lock
+from .storage import upload_path
 
 
 def patient_to_dict(patient: Patient, users: dict[str, User], *, include_blocks: bool = True) -> dict:
@@ -42,6 +43,7 @@ def file_to_dict(file: StoredFile) -> dict:
         "author": file.author,
         "date": file.date,
         "comment": file.comment,
+        "available": upload_path(file.id).is_file(),
     }
 
 

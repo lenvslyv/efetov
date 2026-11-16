@@ -13,6 +13,7 @@ class User(Base):
     role: Mapped[str] = mapped_column(String, nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
     email: Mapped[str | None] = mapped_column(String, nullable=True)
+    center: Mapped[str | None] = mapped_column(String, nullable=True)
     last_seen_at: Mapped[str | None] = mapped_column(String, nullable=True)
     assigned_roles: Mapped[str | None] = mapped_column(Text, nullable=True)
     blocked: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

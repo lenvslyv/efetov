@@ -31,6 +31,7 @@ export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => 
           return (
           <NavLink
             key={item.to}
+            data-network-action={`nav.${item.to.slice(1)}`}
             to={item.to}
             title={collapsed ? item.label : undefined}
             aria-label={collapsed ? item.label : undefined}

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from .database import get_db
 from .models import AuthSession, User
 from .rbac import MESSAGES, ROLE_LABELS, can, now
-from .security import SESSION_EXPIRED, decode_token, idle_expired
+from .security import SESSION_EXPIRED, decode_token, idle_expired, mark_seen
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -72,7 +72,11 @@ def get_current_user(
     creds: HTTPAuthorizationCredentials | None = Depends(bearer),
     db: Session = Depends(get_db),
 ) -> Actor:
-    return actor_from_token(creds, db, allow_idle=False)
+    actor = actor_from_token(creds, db, allow_idle=False)
+    # Check expiry before accepting foreground API activity.
+    mark_seen(actor.session)
+    db.commit()
+    return actor
 
 
 def get_session_user(

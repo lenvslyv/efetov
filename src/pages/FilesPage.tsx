@@ -27,6 +27,10 @@ export function FilesPage() {
     if (!user || !pwr.canFilesManage || pending) return;
     if (dialog === "folder" && !folderName.trim()) { showToast("Введите имя папки"); return; }
     if (dialog === "upload" && !file) { showToast("Выберите файл"); return; }
+    if (dialog === "upload" && file && files.some(stored => stored.name === file.name.trim() && stored.available !== false)) {
+      showToast("Файл с таким именем уже есть. Выберите другой файл или переименуйте его.");
+      return;
+    }
     setPending(true);
     try {
       if (dialog === "folder") { const path = await api.createFolder(user, parent, folderName.trim()); setSelected(path); showToast("Папка создана"); }

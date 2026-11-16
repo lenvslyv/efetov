@@ -10,8 +10,8 @@ export function PatientFormActions({ dirty, creating = false, pending = false, c
         <span className={`size-2 shrink-0 rounded-full ${dirty ? "bg-amber-500" : creating ? "bg-slate-400" : "bg-emerald-500"}`} />{status}
       </p>
       <div className="flex flex-wrap gap-2">
-        <Button type={creating ? "submit" : "button"} disabled={!canSave || pending} onClick={onSave}>{creating ? "Сохранить карточку" : "Сохранить"}</Button>
-        <Button type="button" variant="secondary" disabled={pending} onClick={onBack}>Назад в журнал</Button>
+        <Button data-network-action={creating ? "patient.create" : "patient.save"} type={creating ? "submit" : "button"} disabled={!canSave || pending} onClick={onSave}>{creating ? "Сохранить карточку" : "Сохранить"}</Button>
+        <Button data-network-action="patient.back" type="button" variant="secondary" disabled={pending} onClick={onBack}>Назад в журнал</Button>
       </div>
     </div>
   </div>;

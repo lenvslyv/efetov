@@ -41,9 +41,9 @@ export function FileTree({ files, folders = [], selected, onSelect, canManage, o
         {visibleFiles.length > 0 &&         <div className="files-table-scroll"><table className="w-full min-w-[660px] text-sm">
           <thead className="sticky top-0 z-10 bg-muted"><tr>{["Файл", "Автор", "Дата", "Комментарий", "Действия"].map(label => <th key={label} className="border-b px-4 py-2 text-left text-xs font-medium text-muted-foreground">{label}</th>)}</tr></thead>
           <tbody>{visibleFiles.map(file => <tr key={file.name} className="border-b last:border-0 hover:bg-muted/30">
-            <td className="max-w-72 px-4 py-2"><div className="flex items-center gap-2"><FileIcon name={file.name} /><span className="break-all font-medium">{file.name}</span></div></td>
+            <td className="max-w-72 px-4 py-2"><div className="flex items-center gap-2"><FileIcon name={file.name} /><span className="break-all font-medium">{file.name}{file.available === false && <span className="mt-1 block text-xs text-amber-800">Файл отсутствует на сервере</span>}</span></div></td>
             <td className="px-4 py-2">{file.author}</td><td className="whitespace-nowrap px-4 py-2">{file.date}</td><td className="min-w-40 max-w-sm break-words px-4 py-2">{file.comment || "—"}</td>
-            <td className="px-4 py-2"><div className="flex gap-1"><Button variant="secondary" className="h-9 w-9 p-0" aria-label={`Скачать ${file.name}`} title={`Скачать ${file.name}`} onClick={() => onDownload(file.name)}><Download /></Button>
+            <td className="px-4 py-2"><div className="flex gap-1"><Button variant="secondary" className="h-9 w-9 p-0" aria-label={`Скачать ${file.name}`} disabled={file.available === false} title={file.available === false ? "Содержимое отсутствует. Загрузите файл заново." : `Скачать ${file.name}`} data-network-action="file.download" onClick={() => onDownload(file.name)}><Download /></Button>
               {canManage && <Button variant="secondary" className="h-9 w-9 p-0 text-destructive" aria-label={`Удалить ${file.name}`} title={`Удалить ${file.name}`} onClick={() => onDelete(file.name)}><Trash2 /></Button>}</div></td>
           </tr>)}</tbody>
         </table></div>}

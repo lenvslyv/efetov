@@ -1,10 +1,10 @@
 import { useAuth } from "@/features/auth/useAuth";
 import { useLayoutEffect, useRef } from "react";
 import { Button } from "@/shared/ui";
-import { LogOut, Menu, UserRound } from "lucide-react";
+import { LogOut, UserRound } from "lucide-react";
 import { useLeaveForm } from "@/features/patient/NavigationGuard";
 
-export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
+export function Header() {
   const { user, roleName, logout } = useAuth();
   const leave = useLeaveForm();
   const header = useRef<HTMLElement>(null);
@@ -26,11 +26,9 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
           <div className="truncate text-xs text-muted-foreground">{roleName} · {user?.id}</div></div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" className="xl:hidden" onClick={onOpenMenu}>
-            <Menu />Меню
-          </Button>
           <Button
             variant="secondary"
+            data-network-ignore
             onClick={() => {
               leave(() => logout("manual"));
             }}

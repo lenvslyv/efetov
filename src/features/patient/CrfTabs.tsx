@@ -21,6 +21,7 @@ export function CrfTabs({
         {CRF_SECTIONS.map((item) => (
           <Button
             key={item.id}
+            data-network-action={`patient.section.${item.id}`}
             variant={active === item.id ? "primary" : "secondary"}
             disabled={!canViewSection(role, item.id) || (creating && item.id > 10)}
             title={creating && item.id > 10 ? "Доступно после создания карточки" : undefined}
