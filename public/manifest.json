@@ -1,6 +1,6 @@
 {
-  "short_name": "Исследование",
-  "name": "Система клинического исследования",
+  "short_name": "Sechenov Scientific",
+  "name": "Информационная система для проведения мультицентровых исследований Sechenov Scientific",
   "icons": [
     {
       "src": "favicon.ico",

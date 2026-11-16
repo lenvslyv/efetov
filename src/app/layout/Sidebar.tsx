@@ -47,7 +47,7 @@ export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => 
           </NavLink>
         ); })}
       </nav>
-      {!collapsed && <div className="mt-auto pt-8 text-[11px] leading-5 text-blue-200">Клиническое исследование<br />Единое рабочее пространство</div>}
+      {!collapsed && <div className="mt-auto pt-8 text-[11px] leading-5 text-blue-200">{APP_NAME}<br />Единое рабочее пространство</div>}
     </>
   );
 }
