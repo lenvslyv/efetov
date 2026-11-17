@@ -23,7 +23,7 @@ export function Header() {
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-blue-100 bg-blue-50 text-primary"><UserRound className="size-4" /></div>
           <div className="min-w-0"><div className="truncate text-sm font-semibold">{user?.name || user?.login}</div>
-          <div className="truncate text-xs text-muted-foreground">{roleName} · {user?.id}</div></div>
+          <div className="truncate text-xs text-muted-foreground">{roleName} · {user?.login}</div></div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button

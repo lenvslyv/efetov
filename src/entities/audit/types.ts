@@ -1,6 +1,7 @@
 export interface AuditEvent {
   time: string;
   userId: string;
+  userLogin?: string;
   role: string;
   action: string;
   details: string;

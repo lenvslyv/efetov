@@ -22,7 +22,7 @@ export function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => 
         <div className="text-xs text-blue-200">Текущая роль</div>
         <div className="mt-1 font-semibold">{roleName}</div>
         <div className="mt-1 text-xs text-blue-200">
-          {user?.id} · {user?.login}
+          {user?.login}
         </div>
       </div>
       <nav aria-label="Основная навигация" className="mt-6 space-y-1">

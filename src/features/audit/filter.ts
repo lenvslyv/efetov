@@ -20,7 +20,7 @@ function inRange(value: string, from: string, to: string): boolean {
 export function matchesAuditFilters(item: AuditEvent, filters: AuditFilters): boolean {
   return (
     inRange(item.time, filters.timeFrom, filters.timeTo) &&
-    (!filters.userId || item.userId.toLowerCase().includes(filters.userId.toLowerCase())) &&
+    (!filters.userId || (item.userLogin || "").toLowerCase().includes(filters.userId.toLowerCase())) &&
     (filters.role === "all" || item.role === filters.role) &&
     (!filters.action || item.action.toLowerCase().includes(filters.action.toLowerCase())) &&
     (!filters.details || item.details.toLowerCase().includes(filters.details.toLowerCase()))

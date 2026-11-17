@@ -13,7 +13,7 @@ export function PatientHeader({ patient }: { patient: Patient }) {
         ))}
       </dl>
       <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 border-t pt-2 text-xs leading-5 text-muted-foreground">
-        <span>Создал: {patient.createdByName || patient.createdByLogin || patient.createdBy} · {patient.createdAt || "—"}</span>
+        <span>Создал: {patient.createdByLogin || "Неизвестный пользователь"} · {patient.createdAt || "—"}</span>
         <span>Последнее изменение: {patient.updatedAt || "—"}{patient.updatedByName ? ` · ${patient.updatedByName}` : ""}</span>
       </div>
     </Card>

@@ -16,6 +16,12 @@ import { CRF_FIELD_GROUPS, groupFields } from "../src/entities/crf/layout";
 import { CrfFields } from "../src/features/patient/CrfFields";
 import { FileTree } from "../src/features/files/FileTree";
 import { AuditTable } from "../src/features/audit/AuditTable";
+import { PatientTable } from "../src/features/journal/PatientTable";
+import { PatientLockBar } from "../src/features/patient/PatientLockBar";
+import { SEED } from "../src/api/mock/seed";
+import { holdsLock, isLockedByOther, formatLock } from "../src/entities/patient/lock";
+import { valueForSort } from "../src/features/journal/sort";
+import { matchesAuditFilters } from "../src/features/audit/filter";
 
 let count = 0;
 function checkFieldHelp() {
@@ -27,6 +33,29 @@ function checkFieldHelp() {
   assert.equal(sex.help, "Пол (М - 1, Ж -0)");
 }
 function check(name: string, run: () => void) { run(); count++; console.log(`PASS ${name}`); }
+check("Journal and card show the lock owner's login while ownership uses IDs", () => {
+  const patient = { ...SEED.patients[2], lock: formatLock("U-STA-003"), lockLabel: formatLock("doctor_blohin") };
+  const journal = renderToStaticMarkup(<PatientTable rows={[patient]} sort={{key: "lock", dir: "asc"}} canDelete={false} onSort={() => {}} onOpen={() => {}} onDelete={() => {}} />);
+  const card = renderToStaticMarkup(<PatientLockBar lockLabel={patient.lockLabel} lockedByOther holdsLock={false} canTake={false} canRelease={false} onTake={() => {}} onRelease={() => {}} />);
+  for (const html of [journal, card]) {
+    assert.ok(html.includes("doctor_blohin"));
+    assert.ok(!html.includes("U-STA-003"));
+  }
+  assert.equal(valueForSort(patient, "lock"), patient.lockLabel);
+  assert.equal(holdsLock(patient.lock, "U-STA-003"), true);
+  assert.equal(isLockedByOther(patient.lock, "U-STA-001"), true);
+});
+check("Audit displays and filters logins instead of internal user IDs", () => {
+  const event = {time: "17.11.2026", userId: "U-STA-003", userLogin: "doctor_blohin", role: "Doctor", action: "Lock", details: "Card locked"};
+  const table = renderToStaticMarkup(<AuditTable rows={[event]} />);
+  const filters = renderToStaticMarkup(<AuditFiltersBar filters={EMPTY_AUDIT_FILTERS} roles={[]} onChange={() => {}} onReset={() => {}} />);
+  assert.ok(table.includes("doctor_blohin"));
+  assert.ok(!table.includes("U-STA-003"));
+  assert.ok(table.includes("Логин пользователя") && filters.includes("Логин пользователя"));
+  assert.ok(!filters.includes("U-STA-001"));
+  assert.equal(matchesAuditFilters(event, {...EMPTY_AUDIT_FILTERS, userId: "BLOHIN"}), true);
+  assert.equal(matchesAuditFilters(event, {...EMPTY_AUDIT_FILTERS, userId: "U-STA-003"}), false);
+});
 check("Short labels preserve units and age ranges; coding stays in help", checkFieldHelp);
 check("Clinical groups cover every schema field exactly once and preserve values", () => {
   const defined = Object.values(CRF_FIELD_GROUPS).flatMap(groups => groups.flatMap(group => group.keys));

@@ -20,6 +20,7 @@ export interface Patient {
   updatedBy?: string;
   updatedByName?: string;
   lock: string;
+  lockLabel?: string;
   blocks: Record<string, Field[]>;
 }
 
