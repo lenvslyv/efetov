@@ -78,15 +78,14 @@ export function PatientTable({
                 </td>
                 <td className="max-w-[280px] border-b border-slate-200 px-3 py-2">
                   {patient.createdByLogin ||
-                    patient.createdByName ||
-                    patient.createdBy}
+                    "Неизвестный пользователь"}
                 </td>
                 <td className="max-w-[280px] border-b border-slate-200 px-3 py-2">
                   {patient.updatedAt}
                 </td>
                 <td className="max-w-[280px] border-b border-slate-200 px-3 py-2">
                   {lockOwnerId(patient.lock) ? (
-                    <Badge tone="amber">{patient.lock}</Badge>
+                    <Badge tone="amber">{patient.lockLabel || "Занята"}</Badge>
                   ) : (
                     <Badge tone="slate">{LOCK_FREE}</Badge>
                   )}

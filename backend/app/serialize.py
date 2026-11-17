@@ -1,14 +1,31 @@
 import json
+import re
 
 from .models import Patient, StoredFile, User
 from .rbac import LOCK_FREE, format_lock
 from .storage import upload_path
 
 
+def user_label(reference: str, users: dict[str, User]) -> str:
+    user = users.get(reference)
+    if user:
+        return user.login
+    if re.fullmatch(r"U-(?:[A-Z]+-)?\d+", reference or ""):
+        return "Неизвестный пользователь"
+    return reference or "Неизвестный пользователь"
+
+
+def user_references_to_logins(details: str, users: dict[str, User]) -> str:
+    references = sorted(users, key=len, reverse=True)
+    pattern = "|".join([*(re.escape(value) for value in references), r"U-(?:[A-Z]+-)?\d+"])
+    return re.sub(r"(?<![\w-])(?:" + pattern + r")(?![\w-])", lambda match: user_label(match[0], users), details)
+
+
 def patient_to_dict(patient: Patient, users: dict[str, User], *, include_blocks: bool = True) -> dict:
     creator = users.get(patient.created_by)
     editor = users.get(patient.updated_by) if patient.updated_by else None
     lock = format_lock(patient.lock_user_id) if patient.lock_user_id else LOCK_FREE
+    lock_owner = users.get(patient.lock_user_id) if patient.lock_user_id else None
     return {
         "id": patient.id,
         "code": patient.code,
@@ -17,13 +34,14 @@ def patient_to_dict(patient: Patient, users: dict[str, User], *, include_blocks:
         "centerCode": patient.center_code,
         "operationDate": patient.operation_date,
         "createdBy": patient.created_by,
-        "createdByLogin": creator.login if creator else patient.created_by,
-        "createdByName": creator.name if creator else patient.created_by,
+        "createdByLogin": creator.login if creator else "Неизвестный пользователь",
+        "createdByName": creator.name if creator else "Неизвестный пользователь",
         "createdAt": patient.created_at,
         "updatedAt": patient.updated_at,
         "updatedBy": patient.updated_by or "",
         "updatedByName": editor.name if editor else "",
         "lock": lock,
+        "lockLabel": format_lock(lock_owner.login if lock_owner else "Неизвестный пользователь") if patient.lock_user_id else LOCK_FREE,
         **({"blocks": json.loads(patient.blocks_json)} if include_blocks else {}),
     }
 
@@ -36,11 +54,11 @@ def patient_to_json(patient: Patient, users: dict[str, User]) -> str:
     return metadata[:-1] + ',"blocks":' + patient.blocks_json + '}'
 
 
-def file_to_dict(file: StoredFile) -> dict:
+def file_to_dict(file: StoredFile, users: dict[str, User] | None = None) -> dict:
     return {
         "name": file.name,
         "folder": file.folder,
-        "author": file.author,
+        "author": user_label(file.author, users or {}),
         "date": file.date,
         "comment": file.comment,
         "available": upload_path(file.id).is_file(),

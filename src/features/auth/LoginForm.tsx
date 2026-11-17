@@ -90,7 +90,7 @@ export function QuickRoleCards() {
             <div>
               <div className="text-lg font-semibold">{ROLE_LABELS[item.role]}</div>
               <div className="mt-1 text-sm text-slate-500">
-                ID пользователя: {item.id}
+                Логин пользователя: {item.login}
               </div>
             </div>
             <Button

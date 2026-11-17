@@ -76,6 +76,54 @@ class ApiRegression(unittest.TestCase):
         finally:
             legacy.dispose()
 
+    def test_journal_centers_backfill_only_unambiguous_missing_accounts(self):
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import Session
+        from app.database import Base
+        from app.models import User
+        from app.seed import backfill_user_centers
+
+        isolated = create_engine("sqlite://")
+        try:
+            Base.metadata.create_all(isolated)
+            with Session(isolated) as db:
+                for user_id, center in (("single", None), ("multiple", " "), ("manual", "Manual center"), ("none", None)):
+                    db.add(User(id=user_id, login=user_id, password_hash="unused", role="stationary", name=user_id, center=center))
+                db.flush()
+                for index, (author, center) in enumerate((("single", " Center A "), ("single", "Center A"), ("multiple", "Center A"), ("multiple", "Center B"), ("manual", "Center A"), ("none", " "), ("none", "-"))):
+                    db.add(Patient(id=str(index), code=str(index), created_by=author, center=center, group=center,
+                                   center_code="A", operation_date="-", created_at="-", updated_at="-", blocks_json="{}"))
+                db.commit()
+                self.assertEqual(backfill_user_centers(db), {"single": "Center A"})
+                db.commit()
+                self.assertEqual(backfill_user_centers(db), {})
+                self.assertEqual(db.get(User, "single").center, "Center A")
+                self.assertEqual(db.get(User, "multiple").center, " ")
+                self.assertEqual(db.get(User, "manual").center, "Manual center")
+                self.assertIsNone(db.get(User, "none").center)
+        finally:
+            isolated.dispose()
+
+    def test_seeded_accounts_have_centers_from_journal(self):
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import Session
+        from app.database import Base
+        from app.models import User
+        from app.seed import seed_database
+
+        isolated = create_engine("sqlite://")
+        try:
+            Base.metadata.create_all(isolated)
+            with Session(isolated, autoflush=False) as db:
+                seed_database(db)
+                authors = {patient.created_by: patient.center for patient in db.query(Patient).all()}
+                self.assertEqual(len(authors), 4)
+                for author_id, center in authors.items():
+                    self.assertEqual(db.get(User, author_id).center, center)
+                self.assertIsNone(db.get(User, "U-LEAD-001").center)
+        finally:
+            isolated.dispose()
+
     def test_open_patient_is_authenticated_and_preserves_data(self):
         headers = self.headers(self.login())
         with SessionLocal() as db:

@@ -165,7 +165,7 @@ export function AdminPage() {
           <tbody>{visibleRows.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">Пользователи не найдены</td></tr>}
             {visibleRows.map(account => <tr key={account.id} aria-busy={pendingId === account.id} className="group border-t hover:bg-muted/30">
               <td className="max-w-64 break-words px-4 py-3"><div className="font-medium">{account.name}</div>{account.email && <div className="mt-1 text-xs text-muted-foreground">{account.email}</div>}</td>
-              <td className="px-4 py-3"><div className="font-medium">{account.login}</div><div className="mt-1 text-xs text-muted-foreground">{account.id}</div></td>
+              <td className="px-4 py-3"><div className="font-medium">{account.login}</div></td>
               <td className="max-w-64 break-words px-4 py-3">{account.center || "—"}</td>
               {ROLE_COLUMNS.map(column => <td key={column.role} className="px-3 py-2 text-center"><label className="touch-target mx-auto flex min-h-10 w-10 cursor-pointer items-center justify-center rounded-md hover:bg-primary/5"><input type="checkbox" className="size-4 rounded border-input accent-blue-600 focus-visible:ring-2 focus-visible:ring-ring" aria-label={`${account.name}, ${column.label}`} checked={account.roles.includes(column.role)} disabled={Boolean(pendingId)} onChange={() => void toggleRole(account, column.role)} /></label></td>)}
               <td className="px-4 py-3"><Badge tone={account.blocked ? "red" : "green"}>{account.blocked ? "Заблокирована" : "Активна"}</Badge></td>

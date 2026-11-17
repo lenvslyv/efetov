@@ -16,8 +16,8 @@ export function AuditFiltersBar({ filters, roles, onChange, onReset }: {
       <div><Label htmlFor="audit-date-to">Дата события: по</Label>
         <TextInput id="audit-date-to" value={filters.timeTo} placeholder="дд.мм.гггг" aria-invalid={Boolean(timeError)} aria-describedby={timeError ? "audit-date-error" : undefined}
           onChange={event => onChange({ ...filters, timeTo: event.target.value })} /></div>
-      <div><Label htmlFor="audit-user">ID пользователя</Label>
-        <TextInput id="audit-user" value={filters.userId} placeholder="Например, U-STA-001" onChange={event => onChange({ ...filters, userId: event.target.value })} /></div>
+      <div><Label htmlFor="audit-user">Логин пользователя</Label>
+        <TextInput id="audit-user" value={filters.userId} placeholder="Например, stationary_doctor" onChange={event => onChange({ ...filters, userId: event.target.value })} /></div>
       <div className="audit-role"><Label htmlFor="audit-role">Роль</Label>
         <Select id="audit-role" value={filters.role} onChange={event => onChange({ ...filters, role: event.target.value })}>
           <option value="all">Все роли</option>{roles.map(role => <option key={role} value={role}>{role}</option>)}

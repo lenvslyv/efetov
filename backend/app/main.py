@@ -35,8 +35,8 @@ from .rbac import (
     today,
 )
 from .security import create_token, hash_password, mark_seen, verify_password
-from .seed import add_test_pair_accounts, load_seed, reset_database, seed_database
-from .serialize import file_to_dict, patient_to_dict, patient_to_json, user_to_session
+from .seed import add_test_pair_accounts, backfill_user_centers, load_seed, reset_database, seed_database
+from .serialize import file_to_dict, patient_to_dict, patient_to_json, user_to_session, user_label, user_references_to_logins
 from .storage import (
     clean_file_name,
     clean_folder_name,
@@ -120,26 +120,33 @@ def users_map(db: Session) -> dict[str, User]:
     return {user.id: user for user in db.query(User).all()}
 
 
+def account_login(db: Session, user_id: str) -> str:
+    user = db.get(User, user_id)
+    return user.login if user else "Неизвестный пользователь"
+
+
 def runtime_payload(db: Session, actor: Actor, *, include_audit: bool = True, include_files: bool = True, encoded_patients: bool = False) -> dict:
     people = users_map(db)
     patients = [
         (patient_to_json if encoded_patients else patient_to_dict)(item, people)
         for item in db.query(Patient).order_by(Patient.id.asc()).all()
     ]
-    files = [file_to_dict(item) for item in db.query(StoredFile).all()] if include_files else []
+    files = [file_to_dict(item, people) for item in db.query(StoredFile).all()] if include_files else []
     folders = sorted(known_folders(db)) if include_files else []
     audit = audit_payload(db) if include_audit and can(actor.role, "audit.view") else []
     return {"patients": patients, "files": files, "folders": folders, "audit": audit}
 
 
 def audit_payload(db: Session) -> list[dict]:
+    people = users_map(db)
     return [
         {
             "time": item.time,
             "userId": item.user_id,
+            "userLogin": user_label(item.user_id, people),
             "role": item.role,
             "action": item.action,
-            "details": item.details,
+            "details": user_references_to_logins(item.details, people),
         }
         for item in db.query(AuditEvent).order_by(AuditEvent.id.desc()).all()
     ]
@@ -255,6 +262,8 @@ async def lifespan(_app: FastAPI):
             seed_database(db)
         else:
             add_test_pair_accounts(db)
+            db.flush()
+            backfill_user_centers(db)
             db.commit()
     finally:
         db.close()
@@ -353,7 +362,8 @@ def get_audit(actor: Actor = Depends(get_current_user), db: Session = Depends(ge
 @app.get("/api/file-index")
 def get_file_index(actor: Actor = Depends(get_current_user), db: Session = Depends(get_db)):
     require_permission(db, actor, "files.download")
-    return {"files": [file_to_dict(item) for item in db.query(StoredFile).all()], "folders": sorted(known_folders(db))}
+    people = users_map(db)
+    return {"files": [file_to_dict(item, people) for item in db.query(StoredFile).all()], "folders": sorted(known_folders(db))}
 
 
 @app.post("/api/reset-demo")
@@ -758,6 +768,21 @@ def create_patient(
     )
     db.add(patient)
     add_audit(db, actor, "Создание карты пациента", f"Создана карточка ID {patient_id}, шифр {code}")
+    filled_sections = [
+        section_label(section_id)
+        for section_id, _title in SECTIONS
+        if section_id <= 10 and any(
+            str(field.get("value", "")).strip()
+            for field in blocks.get(section_label(section_id), [])
+        )
+    ]
+    if filled_sections:
+        add_audit(
+            db,
+            actor,
+            "Заполнение разделов",
+            f"Пациент {code}: при создании карточки заполнены разделы {', '.join(filled_sections)}",
+        )
     try:
         db.commit()
     except IntegrityError as exc:
@@ -830,7 +855,7 @@ def save_sections(
             db,
             actor,
             "crf.edit",
-            f"Карточка {patient.code} редактируется пользователем {patient.lock_user_id}",
+            f"Карточка {patient.code} редактируется пользователем {account_login(db, patient.lock_user_id)}",
         )
     blocks = json.loads(patient.blocks_json)
     labels: list[str] = []
@@ -872,7 +897,7 @@ def save_section(
             db,
             actor,
             "crf.edit",
-            f"Карточка {patient.code} редактируется пользователем {patient.lock_user_id}",
+            f"Карточка {patient.code} редактируется пользователем {account_login(db, patient.lock_user_id)}",
         )
     blocks = json.loads(patient.blocks_json)
     apply_section_values(blocks, section, body.values)
@@ -904,7 +929,7 @@ def lock_patient(
             db,
             actor,
             "crf.edit",
-            f"Карточка {patient.code} уже редактируется пользователем {owner}",
+            f"Карточка {patient.code} уже редактируется пользователем {account_login(db, owner)}",
         )
     if owner == actor.id:
         return patient_to_dict(patient, users_map(db))
@@ -915,7 +940,7 @@ def lock_patient(
         db.rollback()
         deny(db, actor, "crf.edit", "Карточка уже взята в работу другим пользователем")
     details = (
-        f"Карточка {patient.code}: блокировка перехвачена у {owner}"
+        f"Карточка {patient.code}: блокировка перехвачена у {account_login(db, owner)}"
         if owner and owner != actor.id
         else f"Карточка {patient.code} взята в работу"
     )
@@ -940,7 +965,7 @@ def unlock_patient(
             db,
             actor,
             "crf.edit",
-            f"Снять блокировку карточки {patient.code} может только {owner} или руководитель",
+            f"Снять блокировку карточки {patient.code} может только {account_login(db, owner)} или руководитель",
         )
     query = db.query(Patient).filter(Patient.id == patient_id)
     if actor.role != "leader":
@@ -1015,7 +1040,7 @@ async def upload_file(
         write_upload(existing.id, content)
         add_audit(db, actor, "Восстановление файла", f"Восстановлено содержимое файла «{name}»")
         db.commit()
-        return file_to_dict(existing)
+        return file_to_dict(existing, users_map(db))
     stored = StoredFile(
         name=name,
         folder=target,
@@ -1029,7 +1054,7 @@ async def upload_file(
     add_audit(db, actor, "Загрузка файла", f"Загружен файл «{name}» в «{target or 'корень'}»")
     db.commit()
     db.refresh(stored)
-    return file_to_dict(stored)
+    return file_to_dict(stored, users_map(db))
 
 
 @app.get("/api/files/content")

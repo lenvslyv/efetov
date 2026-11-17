@@ -25,6 +25,25 @@ def load_seed() -> dict:
     return json.loads(SEED_PATH.read_text(encoding="utf-8"))
 
 
+def backfill_user_centers(db: Session) -> dict[str, str]:
+    """Fill missing account centers only when the journal gives one clear match."""
+    centers_by_author: dict[str, set[str]] = {}
+    for author_id, center in db.query(Patient.created_by, Patient.center).distinct():
+        value = center.strip()
+        if value and value != "-":
+            centers_by_author.setdefault(author_id, set()).add(value)
+
+    updated = {}
+    for user in db.query(User).all():
+        if user.center and user.center.strip():
+            continue
+        centers = centers_by_author.get(user.id, set())
+        if len(centers) == 1:
+            user.center = next(iter(centers))
+            updated[user.id] = user.center
+    return updated
+
+
 def add_test_pair_accounts(db: Session) -> None:
     known_ids = {row[0] for row in db.query(User.id).all()}
     known_logins = {row[0].casefold() for row in db.query(User.login).all()}
@@ -119,6 +138,8 @@ def seed_database(db: Session) -> None:
                 details=item["details"],
             )
         )
+    db.flush()
+    backfill_user_centers(db)
     db.commit()
 
 

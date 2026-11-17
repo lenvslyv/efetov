@@ -13,6 +13,56 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.crf import apply_section_values, empty_blocks, find_stored, CRF_SCHEMA
 from app.brazhnikov import build_final_workbook, NS
 from app.models import Patient
+from app.models import User
+from app.serialize import patient_to_dict, file_to_dict, user_label, user_references_to_logins
+from app.rbac import LOCK_FREE, format_lock
+
+
+class LockOwnerLabel(unittest.TestCase):
+    def test_audit_and_file_authors_resolve_logins_even_after_rename_or_removal(self):
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import Session
+        from app.database import Base
+        from app.models import AuditEvent, StoredFile
+        from app.main import audit_payload
+
+        isolated = create_engine("sqlite://")
+        try:
+            Base.metadata.create_all(isolated)
+            with Session(isolated) as db:
+                user = User(id="U-STA-003", login="doctor_blohin", name="Doctor", role="stationary", password_hash="unused")
+                db.add(user)
+                db.add(AuditEvent(time="17.11.2026", user_id=user.id, role="Doctor", action="Lock", details="Owner U-STA-003; previous U-999"))
+                stored = StoredFile(name="guide.txt", folder="", author=user.id, date="17.11.2026", comment="")
+                db.add(stored)
+                db.commit()
+                for login in ("doctor_blohin", "renamed_doctor"):
+                    user.login = login
+                    user.removed_at = "17.11.2026"
+                    db.commit()
+                    event = audit_payload(db)[0]
+                    self.assertEqual(event["userLogin"], login)
+                    self.assertIn(login, event["details"])
+                    self.assertNotIn("U-", event["details"])
+                    self.assertEqual(file_to_dict(stored, {user.id: user})["author"], login)
+                    self.assertEqual(stored.author, user.id)
+                self.assertEqual(user_label("Historical author", {}), "Historical author")
+                self.assertNotIn("U-999", user_label("U-999", {}))
+                self.assertEqual(user_references_to_logins("XU-STA-003-extra", {user.id: user}), "XU-STA-003-extra")
+        finally:
+            isolated.dispose()
+
+    def test_login_is_displayed_while_lock_keeps_its_stable_owner_id(self):
+        owner = User(id="U-STA-003", login="doctor_blohin", name="Doctor")
+        patient = Patient(id="lock-label", created_by=owner.id, lock_user_id=owner.id, blocks_json="{}")
+        serialized = patient_to_dict(patient, {owner.id: owner})
+        self.assertEqual(serialized["lock"], format_lock(owner.id))
+        self.assertEqual(serialized["lockLabel"], format_lock(owner.login))
+        owner.login = "new_login"
+        self.assertEqual(patient_to_dict(patient, {owner.id: owner})["lockLabel"], format_lock("new_login"))
+        self.assertNotIn(owner.id, patient_to_dict(patient, {})["lockLabel"])
+        patient.lock_user_id = None
+        self.assertEqual(patient_to_dict(patient, {})["lockLabel"], LOCK_FREE)
 
 
 class SeparateDemographics(unittest.TestCase):

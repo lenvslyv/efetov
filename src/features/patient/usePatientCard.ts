@@ -75,8 +75,6 @@ export function usePatientCard(id: string | undefined) {
 
   const creator =
     patient?.createdByLogin ||
-    patient?.createdByName ||
-    patient?.createdBy ||
     "неизвестный пользователь";
 
   const sectionsToSave = (): Record<number, Record<string, string>> => {
@@ -157,7 +155,7 @@ export function usePatientCard(id: string | undefined) {
     if (!user || !patient || !canSave) {
       showToast(
         lockedByOther
-          ? `Карточка редактируется пользователем ${lockOwner}`
+          ? (patient?.lockLabel || "Карточка занята другим пользователем")
           : "Редактирование раздела недоступно"
       );
       return;
@@ -201,7 +199,7 @@ export function usePatientCard(id: string | undefined) {
     canSave,
     lockedByOther,
     ownsLock,
-    lockLabel: patient?.lock || LOCK_FREE,
+    lockLabel: patient?.lockLabel || (lockOwner ? "Занята" : LOCK_FREE),
     canTakeLock: Boolean(
       user && patient && (user.role !== "stationary" || patient.createdBy === user.id) && (!lockOwner || user.role === "leader") && !ownsLock
     ),
